@@ -3,7 +3,7 @@ kamaji:
     deploy: false
   image:
     pullPolicy: IfNotPresent
-    tag: v0.32.1@sha256:39bd83f5e7dae9c462f25d3aaef4240749dc380469062b9184727d5b12d0d584
+    tag: v42.8.1@sha256:675938648e40ae66ad4439e9ea6f0559e137a2e1fe5f3f0f98ac50a0531d8b0d
     repository: ghcr.io/quantumreasoning/quantumreasoning/kamaji
   resources:
     limits:

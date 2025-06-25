@@ -10,7 +10,7 @@ image-quantumreasoning-controller:
 	docker buildx build -f images/quantumreasoning-controller/Dockerfile ../../.. \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/quantumreasoning-controller:$(call settag,$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/quantumreasoning-controller:latest \
 		--cache-to type=inline \

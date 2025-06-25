@@ -28,7 +28,8 @@ RUN go mod download
 
 RUN go build -o /quantumreasoning-assets-server -ldflags '-extldflags "-static" -w -s' ./cmd/quantumreasoning-assets-server
 
-RUN make repos
+# RUN make repos
+RUN make repos || (echo "Make failed"; cat Makefile; exit 1)
 
 FROM alpine:3.22
 
@@ -40,7 +41,7 @@ COPY --from=builder /src/scripts /quantumreasoning/scripts
 COPY --from=builder /src/packages/core /quantumreasoning/packages/core
 COPY --from=builder /src/packages/system /quantumreasoning/packages/system
 COPY --from=builder /src/_out/repos /quantumreasoning/assets/repos
-COPY --from=builder /src/_out/logos /quantumreasoning/assets/logos
+# COPY --from=builder /src/_out/logos /quantumreasoning/assets/logos
 COPY --from=builder /quantumreasoning-assets-server /usr/bin/quantumreasoning-assets-server
 COPY --from=k8s-await-election-builder /k8s-await-election /usr/bin/k8s-await-election
 COPY --from=builder /src/dashboards /quantumreasoning/assets/dashboards

@@ -1,1 +1,1 @@
-ghcr.io/quantumreasoning/quantumreasoning/s3manager:v0.5.0@sha256:b9041dd66226dbe2265be5942c4c8e356aa179de699f732042e1321c8a5b1406
+ghcr.io/quantumreasoning/quantumreasoning/s3manager:v0.5.0@sha256:180be88e12aeb97561a3e543806e3ce17ec5678f9b59b78f2022b4f248fc83ba

@@ -8,7 +8,7 @@ image:
 	docker buildx build images/kubeovn-webhook \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/kubeovn-webhook:$(call settag,$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/kubeovn-webhook:latest \
 		--cache-to type=inline \

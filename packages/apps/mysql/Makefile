@@ -10,7 +10,7 @@ image:
 	docker buildx build images/mariadb-backup \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/mariadb-backup:$(call settag,$(MARIADB_BACKUP_TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/mariadb-backup:latest \
 		--cache-to type=inline \

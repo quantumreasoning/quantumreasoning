@@ -19,7 +19,7 @@ image:
 	docker buildx build images/cilium \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/cilium:$(call settag,$(CILIUM_TAG)) \
 		--tag $(REGISTRY)/cilium:$(call settag,$(CILIUM_TAG)-$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/cilium:latest \

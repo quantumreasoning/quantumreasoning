@@ -30,7 +30,7 @@ image-dashboard: update-version
 	docker buildx build images/dashboard \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/dashboard:$(call settag,$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/dashboard:latest \
 		--cache-to type=inline \
@@ -52,7 +52,7 @@ image-kubeapps-apis: update-version
 	docker buildx build images/kubeapps-apis \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/kubeapps-apis:$(call settag,$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/kubeapps-apis:latest \
 		--cache-to type=inline \

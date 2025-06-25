@@ -14,7 +14,7 @@ cilium:
     mode: "kubernetes"
   image:
     repository: ghcr.io/quantumreasoning/quantumreasoning/cilium
-    tag: 1.17.4
-    digest: "sha256:91f628cbdc4652b4459af79c5a0501282cc0bc0a9fc11e3d8cb65e884f94e751"
+    tag: 1.17.5
+    digest: "sha256:afd0432bcd733c60cc4521bdfa6d12538ae52f6b4410a0d2bd062ea42732bd53"
   envoy:
     enabled: false

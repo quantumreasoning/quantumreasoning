@@ -17,7 +17,7 @@ image-controller image-speaker:
 	docker buildx build images/metallb \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--target $(TARGET) \
 		--build-arg VERSION=$(VERSION) \
 		--tag $(REGISTRY)/metallb-$(TARGET):$(VERSION) \

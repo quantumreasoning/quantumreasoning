@@ -15,7 +15,7 @@ image:
 	docker buildx build images/kamaji \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/kamaji:$(call settag,$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/kamaji:latest \
 		--cache-to type=inline \

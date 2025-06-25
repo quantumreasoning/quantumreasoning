@@ -14,7 +14,7 @@ image-s3manager:
 	docker buildx build images/s3manager \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/s3manager:$(call settag,$(S3MANAGER_TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/s3manager:latest \
 		--cache-to type=inline \

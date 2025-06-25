@@ -1,1 +1,1 @@
-ghcr.io/quantumreasoning/quantumreasoning/clickhouse-backup:0.10.1@sha256:3faf7a4cebf390b9053763107482de175aa0fdb88c1e77424fd81100b1c3a205
+ghcr.io/quantumreasoning/quantumreasoning/clickhouse-backup:0.10.1@sha256:b78f351cc7258118ecfbea3c1d5624183121b4c6bd17bbb9688d02c0b0d3fdd2

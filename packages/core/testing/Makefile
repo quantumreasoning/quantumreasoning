@@ -18,7 +18,7 @@ image-e2e-sandbox:
 	docker buildx build -f images/e2e-sandbox/Dockerfile ../../.. \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/e2e-sandbox:$(call settag,$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/e2e-sandbox:latest \
 		--cache-to type=inline \

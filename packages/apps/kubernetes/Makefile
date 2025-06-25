@@ -17,7 +17,7 @@ image-ubuntu-container-disk:
 	docker buildx build images/ubuntu-container-disk \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--build-arg KUBERNETES_VERSION=${KUBERNETES_VERSION} \
 		--tag $(REGISTRY)/ubuntu-container-disk:$(call settag,$(KUBERNETES_VERSION)) \
 		--tag $(REGISTRY)/ubuntu-container-disk:$(call settag,$(KUBERNETES_VERSION)-$(TAG)) \
@@ -35,7 +35,7 @@ image-kubevirt-cloud-provider:
 	docker buildx build images/kubevirt-cloud-provider \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/kubevirt-cloud-provider:$(call settag,$(KUBERNETES_PKG_TAG)) \
 		--tag $(REGISTRY)/kubevirt-cloud-provider:$(call settag,$(KUBERNETES_PKG_TAG)-$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/kubevirt-cloud-provider:latest \
@@ -52,7 +52,7 @@ image-kubevirt-csi-driver:
 	docker buildx build images/kubevirt-csi-driver \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/kubevirt-csi-driver:$(call settag,$(KUBERNETES_PKG_TAG)) \
 		--tag $(REGISTRY)/kubevirt-csi-driver:$(call settag,$(KUBERNETES_PKG_TAG)-$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/kubevirt-csi-driver:latest \
@@ -70,7 +70,7 @@ image-cluster-autoscaler:
 	docker buildx build images/cluster-autoscaler \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/cluster-autoscaler:$(call settag,$(KUBERNETES_PKG_TAG)) \
 		--tag $(REGISTRY)/cluster-autoscaler:$(call settag,$(KUBERNETES_PKG_TAG)-$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/cluster-autoscaler:latest \

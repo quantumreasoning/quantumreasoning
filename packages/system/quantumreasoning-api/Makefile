@@ -10,7 +10,7 @@ image-quantumreasoning-api:
 	docker buildx build -f images/quantumreasoning-api/Dockerfile ../../.. \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/quantumreasoning-api:$(call settag,$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/quantumreasoning-api:latest \
 		--cache-to type=inline \

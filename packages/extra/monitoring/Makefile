@@ -16,7 +16,7 @@ image:
 	docker buildx build images/grafana \
 		--provenance false \
 		--builder=$(BUILDER) \
-		--platform=$(PLATFORM) \
+		--platform=linux/amd64 \
 		--tag $(REGISTRY)/grafana:$(call settag,$(GRAFANA_TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/grafana:latest \
 		--cache-to type=inline \
