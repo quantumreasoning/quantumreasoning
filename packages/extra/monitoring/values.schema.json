@@ -1,0 +1,82 @@
+{
+  "title": "Chart Values",
+  "type": "object",
+  "properties": {
+    "host": {
+      "type": "string",
+      "description": "The hostname used to access the grafana externally (defaults to 'grafana' subdomain for the tenant host).",
+      "default": ""
+    },
+    "metricsStorages": {
+      "type": "array",
+      "description": "Configuration of metrics storage instances",
+      "default": "[]",
+      "items": {
+        "type": "object"
+      }
+    },
+    "logsStorages": {
+      "type": "array",
+      "description": "Configuration of logs storage instances",
+      "default": "[]",
+      "items": {
+        "type": "object"
+      }
+    },
+    "alerta": {
+      "type": "object",
+      "properties": {
+        "storage": {
+          "type": "string",
+          "description": "Persistent Volume size for alerta database",
+          "default": "10Gi"
+        },
+        "storageClassName": {
+          "type": "string",
+          "description": "StorageClass used to store the data",
+          "default": ""
+        },
+        "alerts": {
+          "type": "object",
+          "properties": {
+            "telegram": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "type": "string",
+                  "description": "telegram token for your bot",
+                  "default": ""
+                },
+                "chatID": {
+                  "type": "string",
+                  "description": "specify multiple ID's separated by comma. Get yours in https://t.me/chatid_echo_bot",
+                  "default": ""
+                },
+                "disabledSeverity": {
+                  "type": "string",
+                  "description": "list of severity without alerts, separated comma like: \"informational,warning\"",
+                  "default": ""
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "grafana": {
+      "type": "object",
+      "properties": {
+        "db": {
+          "type": "object",
+          "properties": {
+            "size": {
+              "type": "string",
+              "description": "Persistent Volume size for grafana database",
+              "default": "10Gi"
+            }
+          }
+        }
+      }
+    }
+  }
+}

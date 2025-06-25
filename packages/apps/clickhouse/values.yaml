@@ -1,0 +1,57 @@
+## @section Common parameters
+
+## @param size Size of Persistent Volume for data
+## @param logStorageSize Size of Persistent Volume for logs
+## @param shards Number of Clickhouse shards
+## @param replicas Number of Clickhouse replicas
+## @param storageClass StorageClass used to store the data
+## @param logTTL TTL (expiration time) for query_log and query_thread_log
+##
+size: 10Gi
+logStorageSize: 2Gi
+shards: 1
+replicas: 2
+storageClass: ""
+logTTL: 15
+
+## @section Configuration parameters
+
+## @param users [object] Users configuration
+## Example:
+## users:
+##   user1:
+##     password: strongpassword
+##   user2:
+##     readonly: true
+##     password: hackme
+##
+users: {}
+
+## @section Backup parameters
+
+## @param backup.enabled Enable periodic backups
+## @param backup.s3Region AWS S3 region where backups are stored
+## @param backup.s3Bucket S3 bucket used for storing backups
+## @param backup.schedule Cron schedule for automated backups
+## @param backup.cleanupStrategy Retention strategy for cleaning up old backups
+## @param backup.s3AccessKey Access key for S3, used for authentication
+## @param backup.s3SecretKey Secret key for S3, used for authentication
+## @param backup.resticPassword Password for Restic backup encryption
+backup:
+  enabled: false
+  s3Region: us-east-1
+  s3Bucket: s3.example.org/clickhouse-backups
+  schedule: "0 2 * * *"
+  cleanupStrategy: "--keep-last=3 --keep-daily=3 --keep-within-weekly=1m"
+  s3AccessKey: oobaiRus9pah8PhohL1ThaeTa4UVa7gu
+  s3SecretKey: ju3eum4dekeich9ahM1te8waeGai0oog
+  resticPassword: ChaXoveekoh6eigh4siesheeda2quai0
+
+## @param resources Explicit CPU/memory resource requests and limits for the Clickhouse service
+resources: {}
+ # resources:
+ #   cpu: 4000m
+ #   memory: 4Gi
+
+## @param resourcesPreset Use a common resources preset when `resources` is not set explicitly.
+resourcesPreset: "small"

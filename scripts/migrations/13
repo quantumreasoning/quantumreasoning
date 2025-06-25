@@ -1,0 +1,10 @@
+#!/bin/sh
+# Migration 13 --> 14
+
+# Upgrade tenants.apps to new chart version
+kubectl get tenants.apps.quantumreasoning.io -A --no-headers --output=custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name' | while read NAMESPACE NAME; do
+  kubectl patch tenants.apps.quantumreasoning.io -n "$NAMESPACE" "$NAME" --type merge -p '{"appVersion":"1.10.0"}'
+done
+
+# Write version to quantumreasoning-version config
+kubectl create configmap -n quantum-system quantumreasoning-version --from-literal=version=14 --dry-run=client -o yaml | kubectl apply -f-

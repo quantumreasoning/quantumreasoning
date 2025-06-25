@@ -1,0 +1,53 @@
+{{- define "quantumreasoning.namespace-anotations" }}
+{{- $context := index . 0 }}
+{{- $existingNS := index . 1 }}
+{{- range $x := list "etcd" "monitoring" "ingress" "seaweedfs" }}
+{{- if (index $context.Values $x) }}
+namespace.quantumreasoning.io/{{ $x }}: "{{ include "tenant.name" $context }}"
+{{- else }}
+namespace.quantumreasoning.io/{{ $x }}: "{{ index $existingNS.metadata.annotations (printf "namespace.quantumreasoning.io/%s" $x) | required (printf "namespace %s has no namespace.quantumreasoning.io/%s annotation" $context.Release.Namespace $x) }}"
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- $existingNS := lookup "v1" "Namespace" "" .Release.Namespace }}
+{{- if not $existingNS }}
+{{- fail (printf "error lookup existing namespace: %s" .Release.Namespace) }}
+{{- end }}
+
+{{- if ne (include "tenant.name" .) "tenant-root" }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "tenant.name" . }}
+  {{- if hasPrefix "tenant-" .Release.Namespace }}
+  annotations:
+    {{- if .Values.host }}
+    namespace.quantumreasoning.io/host: "{{ .Values.host }}"
+    {{- else }}
+    {{ $parentHost := index $existingNS.metadata.annotations "namespace.quantumreasoning.io/host" | required (printf "namespace %s has no namespace.quantumreasoning.io/host annotation" .Release.Namespace) }}
+    namespace.quantumreasoning.io/host: "{{ splitList "-" (include "tenant.name" .) | last }}.{{ $parentHost }}"
+    {{- end }}
+    {{- include "quantumreasoning.namespace-anotations" (list . $existingNS) | nindent 4 }}
+  labels:
+    tenant.quantumreasoning.io/{{ include "tenant.name" $ }}: ""
+    {{- if hasPrefix "tenant-" .Release.Namespace }}
+    {{- $parts := splitList "-" .Release.Namespace }}
+    {{- range $i, $v := $parts }}
+    {{- if ne $i 0 }}
+    tenant.quantumreasoning.io/{{ join "-" (slice $parts 0 (add $i 1)) }}: ""
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- include "quantumreasoning.namespace-anotations" (list $ $existingNS) | nindent 4 }}
+    alpha.kubevirt.io/auto-memory-limits-ratio: "1.0"
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Namespace
+    name: {{ .Release.Namespace }}
+    uid: {{ $existingNS.metadata.uid }}
+  {{- end }}
+{{- end }}

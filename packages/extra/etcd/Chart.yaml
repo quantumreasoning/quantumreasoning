@@ -1,0 +1,6 @@
+apiVersion: v2
+name: etcd
+description: Storage for Kubernetes clusters
+icon: /logos/etcd.svg
+type: application
+version: 2.8.0

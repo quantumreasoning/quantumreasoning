@@ -1,0 +1,247 @@
+{
+  "title": "Chart Values",
+  "type": "object",
+  "properties": {
+    "host": {
+      "type": "string",
+      "description": "Hostname used to access the Kubernetes cluster externally. Defaults to `<cluster-name>.<tenant-host>` when empty.",
+      "default": ""
+    },
+    "controlPlane": {
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "type": "number",
+          "description": "Number of replicas for Kubernetes control-plane components.",
+          "default": 2
+        },
+        "apiServer": {
+          "type": "object",
+          "properties": {
+            "resources": {
+              "type": "object",
+              "description": "Explicit CPU/memory resource requests and limits for the API server.",
+              "default": {}
+            },
+            "resourcesPreset": {
+              "type": "string",
+              "description": "Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)",
+              "default": "medium",
+              "enum": [
+                "none",
+                "nano",
+                "micro",
+                "small",
+                "medium",
+                "large",
+                "xlarge",
+                "2xlarge"
+              ]
+            }
+          }
+        },
+        "controllerManager": {
+          "type": "object",
+          "properties": {
+            "resources": {
+              "type": "object",
+              "description": "Explicit CPU/memory resource requests and limits for the controller manager.",
+              "default": {}
+            },
+            "resourcesPreset": {
+              "type": "string",
+              "description": "Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)",
+              "default": "micro",
+              "enum": [
+                "none",
+                "nano",
+                "micro",
+                "small",
+                "medium",
+                "large",
+                "xlarge",
+                "2xlarge"
+              ]
+            }
+          }
+        },
+        "scheduler": {
+          "type": "object",
+          "properties": {
+            "resources": {
+              "type": "object",
+              "description": "Explicit CPU/memory resource requests and limits for the scheduler.",
+              "default": {}
+            },
+            "resourcesPreset": {
+              "type": "string",
+              "description": "Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)",
+              "default": "micro",
+              "enum": [
+                "none",
+                "nano",
+                "micro",
+                "small",
+                "medium",
+                "large",
+                "xlarge",
+                "2xlarge"
+              ]
+            }
+          }
+        },
+        "konnectivity": {
+          "type": "object",
+          "properties": {
+            "server": {
+              "type": "object",
+              "properties": {
+                "resources": {
+                  "type": "object",
+                  "description": "Explicit CPU/memory resource requests and limits for the Konnectivity.",
+                  "default": {}
+                },
+                "resourcesPreset": {
+                  "type": "string",
+                  "description": "Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)",
+                  "default": "micro",
+                  "enum": [
+                    "none",
+                    "nano",
+                    "micro",
+                    "small",
+                    "medium",
+                    "large",
+                    "xlarge",
+                    "2xlarge"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "storageClass": {
+      "type": "string",
+      "description": "StorageClass used to store user data.",
+      "default": "replicated"
+    },
+    "addons": {
+      "type": "object",
+      "properties": {
+        "certManager": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable cert-manager, which automatically creates and manages SSL/TLS certificates.",
+              "default": false
+            },
+            "valuesOverride": {
+              "type": "object",
+              "description": "Custom values to override",
+              "default": {}
+            }
+          }
+        },
+        "cilium": {
+          "type": "object",
+          "properties": {
+            "valuesOverride": {
+              "type": "object",
+              "description": "Custom values to override",
+              "default": {}
+            }
+          }
+        },
+        "gatewayAPI": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the Gateway API",
+              "default": false
+            }
+          }
+        },
+        "ingressNginx": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the Ingress-NGINX controller (requires nodes labeled with the 'ingress-nginx' role).",
+              "default": false
+            },
+            "valuesOverride": {
+              "type": "object",
+              "description": "Custom values to override",
+              "default": {}
+            },
+            "hosts": {
+              "type": "array",
+              "description": "List of domain names that the parent cluster should route to this tenant cluster.",
+              "default": [],
+              "items": {}
+            }
+          }
+        },
+        "gpuOperator": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the GPU-operator",
+              "default": false
+            },
+            "valuesOverride": {
+              "type": "object",
+              "description": "Custom values to override",
+              "default": {}
+            }
+          }
+        },
+        "fluxcd": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable FluxCD",
+              "default": false
+            },
+            "valuesOverride": {
+              "type": "object",
+              "description": "Custom values to override",
+              "default": {}
+            }
+          }
+        },
+        "monitoringAgents": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable monitoring agents (Fluent Bit and VMAgents) to send logs and metrics. If tenant monitoring is enabled, data is sent to tenant storage; otherwise, it goes to root storage.",
+              "default": false
+            },
+            "valuesOverride": {
+              "type": "object",
+              "description": "Custom values to override",
+              "default": {}
+            }
+          }
+        },
+        "verticalPodAutoscaler": {
+          "type": "object",
+          "properties": {
+            "valuesOverride": {
+              "type": "object",
+              "description": "Custom values to override",
+              "default": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{{- $quantumConfig := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning" }}
+{{- $bundleName := index $quantumConfig.data "bundle-name" }}
+{{- $bundle := tpl (.Files.Get (printf "bundles/%s.yaml" $bundleName)) . | fromYaml }}
+{{- $disabledComponents := splitList "," ((index $quantumConfig.data "bundle-disable") | default "") }}
+{{- $enabledComponents := splitList "," ((index $quantumConfig.data "bundle-enable") | default "") }}
+{{- $namespaces := dict }}
+
+{{/* collect namespaces from releases */}}
+{{- range $x := $bundle.releases }}
+  {{- if not (hasKey $namespaces $x.namespace) }}
+    {{- if not (has $x.name $disabledComponents) }}
+      {{- if or (not $x.optional) (and ($x.optional) (has $x.name $enabledComponents)) }}
+        {{- $_ := set $namespaces $x.namespace false }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{/* if at least one release requires a privileged namespace, then it should be privileged */}}
+  {{- if or $x.privileged (index $namespaces $x.namespace) }}
+    {{- $_ := set $namespaces $x.namespace true }}
+  {{- end }}
+{{- end }}
+
+{{/* Add extra namespaces */}}
+{{- $_ := set $namespaces "quantum-system" true }}
+{{- $_ := set $namespaces "quantum-public" false }}
+
+{{- range $namespace, $privileged := $namespaces }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    quantumreasoning.io/system: "true"
+    {{- if $privileged }}
+    pod-security.kubernetes.io/enforce: privileged
+    {{- end }}
+  name: {{ $namespace }}
+{{- end }}

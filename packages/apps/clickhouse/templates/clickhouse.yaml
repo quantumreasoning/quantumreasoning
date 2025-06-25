@@ -1,0 +1,156 @@
+{{- $quantumConfig := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning" }}
+{{- $clusterDomain := (index $quantumConfig.data "cluster-domain") | default "quantum.local" }}
+{{- $existingSecret := lookup "v1" "Secret" .Release.Namespace (printf "%s-credentials" .Release.Name) }}
+{{- $passwords := dict }}
+{{- $users := .Values.users }}
+{{- $_ := set $users "backup" dict }}
+
+{{- with (index $existingSecret "data") }}
+  {{- range $k, $v := . }}
+    {{- $_ := set $passwords $k (b64dec $v) }}
+  {{- end }}
+{{- end }}
+
+{{- range $user, $u := $users }}
+  {{- if $u.password }}
+    {{- $_ := set $passwords $user $u.password }}
+  {{- else if not (index $passwords $user) }}
+    {{- $_ := set $passwords $user (randAlphaNum 16) }}
+  {{- end }}
+{{- end }}
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-credentials
+stringData:
+  {{- range $user, $u := .Values.users }}
+  {{ quote $user }}: {{ quote (index $passwords $user) }}
+  {{- end }}
+
+---
+apiVersion: "clickhouse.altinity.com/v1"
+kind: "ClickHouseInstallation"
+metadata:
+  name: "{{ .Release.Name }}"
+spec:
+  namespaceDomainPattern:  "%s.svc.{{ $clusterDomain }}"
+  defaults:
+    templates:
+      dataVolumeClaimTemplate: data-volume-template
+      podTemplate: clickhouse-per-host
+      serviceTemplate: svc-template
+  configuration:
+    {{- with $users }}
+    users:
+      {{- range $name, $u := . }}
+      {{ $name }}/password_sha256_hex: {{ sha256sum (index $passwords $name) }}
+      {{ $name }}/profile: {{ ternary "readonly" "default" (index $u "readonly" | default false) }}
+      {{ $name }}/networks/ip: ["::/0"]
+      {{- end }}
+    {{- end }}
+    files:
+      config.d/z_log_disable.xml: |
+        <clickhouse>
+            <asynchronous_metric_log remove="1"/>
+            <metric_log remove="1"/>
+            <query_views_log remove="1" />
+            <part_log remove="1"/>
+            <session_log remove="1"/>
+            <text_log remove="1" />
+            <trace_log remove="1"/>
+            <crash_log remove="1"/>
+            <opentelemetry_span_log remove="1"/>
+            <processors_profile_log remove="1"/>
+        </clickhouse>
+      config.d/query_log_ttl.xml: |
+        <clickhouse>
+            <query_log replace="1">
+                <database>system</database>
+                <table>query_log</table>
+                <engine>ENGINE = MergeTree PARTITION BY (event_date)
+                        ORDER BY (event_time)
+                        TTL event_date + INTERVAL {{ .Values.logTTL }} DAY DELETE
+                </engine>
+                <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+            </query_log>
+            <query_thread_log replace="1">
+                <database>system</database>
+                <table>query_thread_log</table>
+                <engine>ENGINE = MergeTree PARTITION BY (event_date)
+                        ORDER BY (event_time)
+                        TTL event_date + INTERVAL {{ .Values.logTTL }} DAY DELETE
+                </engine>
+                <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+            </query_thread_log>
+        </clickhouse>
+    profiles:
+      readonly/readonly: "1"
+    clusters:
+      - name: "clickhouse"
+        layout:
+          shardsCount: {{ .Values.shards }}
+          replicasCount: {{ .Values.replicas }}
+  templates:
+    volumeClaimTemplates:
+      - name: data-volume-template
+        metadata:
+          labels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: {{ .Values.size }}
+      - name: log-volume-template
+        metadata:
+          labels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: {{ .Values.logStorageSize }}
+    podTemplates:
+      - name: clickhouse-per-host
+        metadata:
+          labels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        spec:
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: "clickhouse.altinity.com/chi"
+                        operator: In
+                        values:
+                          - "{{ .Release.Name }}"
+                  topologyKey: "kubernetes.io/hostname"
+          containers:
+            - name: clickhouse
+              image: clickhouse/clickhouse-server:24.9.2.42
+              {{- if .Values.resources }}
+              resources: {{- include "quantum-lib.resources.sanitize" (list .Values.resources $) | nindent 16 }}
+              {{- else if ne .Values.resourcesPreset "none" }}
+              resources: {{- include "quantum-lib.resources.preset" (list .Values.resourcesPreset $) | nindent 16 }}
+              {{- end }}
+              volumeMounts:
+                - name: data-volume-template
+                  mountPath: /var/lib/clickhouse
+                - name: log-volume-template
+                  mountPath: /var/log/clickhouse-server
+    serviceTemplates:
+      - name: svc-template
+        metadata:
+          labels:
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        generateName: chendpoint-{chi}
+        spec:
+          ports:
+            - name: http
+              port: 8123
+            - name: tcp
+              port: 9000

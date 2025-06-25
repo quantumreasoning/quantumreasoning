@@ -1,0 +1,41 @@
+{
+    "title": "Chart Values",
+    "type": "object",
+    "properties": {
+        "external": {
+            "type": "boolean",
+            "description": "Enable external access from outside the cluster",
+            "default": false
+        },
+        "size": {
+            "type": "string",
+            "description": "Persistent Volume size",
+            "default": "1Gi"
+        },
+        "replicas": {
+            "type": "number",
+            "description": "Number of Redis replicas",
+            "default": 2
+        },
+        "storageClass": {
+            "type": "string",
+            "description": "StorageClass used to store the data",
+            "default": ""
+        },
+        "authEnabled": {
+            "type": "boolean",
+            "description": "Enable password generation",
+            "default": true
+        },
+        "resources": {
+            "type": "object",
+            "description": "Resources",
+            "default": {}
+        },
+        "resourcesPreset": {
+            "type": "string",
+            "description": "Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)",
+            "default": "nano"
+        }
+    }
+}

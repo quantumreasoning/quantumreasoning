@@ -1,0 +1,2 @@
+quantum-proxy:
+  fullnameOverride: quantum-proxy

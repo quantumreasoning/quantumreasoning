@@ -1,0 +1,2 @@
+e2e:
+  image: ghcr.io/quantumreasoning/quantumreasoning/e2e-sandbox:v0.32.1@sha256:b15f85e58be54529d74ab7056d5d47960944abde28f14611e88156989a19c789

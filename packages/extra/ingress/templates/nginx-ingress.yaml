@@ -1,0 +1,56 @@
+{{- $quantumConfig := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning" }}
+{{- $exposeIngress := index $quantumConfig.data "expose-ingress" | default "tenant-root" }}
+{{- $exposeExternalIPs := (index $quantumConfig.data "expose-external-ips") | default "" }}
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx-system
+spec:
+  chart:
+    spec:
+      chart: quantum-ingress-nginx
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: HelmRepository
+        name: quantumreasoning-system
+        namespace: quantum-system
+      version: '>= 0.0.0-0'
+  interval: 1m0s
+  timeout: 5m0s
+  values:
+    ingress-nginx:
+      fullnameOverride: {{ trimPrefix "tenant-" .Release.Namespace }}-ingress
+      controller:
+        replicaCount: {{ .Values.replicas }}
+        ingressClass: {{ .Release.Namespace }}
+        ingressClassResource:
+          name: {{ .Release.Namespace }}
+          controllerValue: k8s.io/ingress-nginx-{{ .Release.Namespace }}
+        podLabels:
+          quantumreasoning.io/service: ingress
+          policy.quantumreasoning.io/allow-to-apiserver: "true"
+        {{- if not (eq .Release.Namespace "tenant-root") }}
+        admissionWebhooks:
+          enabled: false
+        {{- end }}
+        service:
+          {{- if and (eq $exposeIngress .Release.Namespace) $exposeExternalIPs }}
+          externalIPs:
+            {{- toYaml (splitList "," $exposeExternalIPs) | nindent 12 }}
+          type: ClusterIP
+          externalTrafficPolicy: Cluster
+          {{- else }}
+          type: LoadBalancer
+          externalTrafficPolicy: Local
+          {{- end }}
+        {{- if or .Values.whitelist .Values.clouflareProxy }}
+        config:
+          {{- with .Values.whitelist }}
+          whitelist-source-range: "{{ join "," . }}"
+          {{- end }}
+          {{- if .Values.clouflareProxy }}
+          set_real_ip_from: "{{ include "ingress.cloudflare-ips" . }}"
+          use-forwarded-headers: "true"
+          server-snippet: "real_ip_header CF-Connecting-IP;"
+          {{- end }}
+        {{- end }}

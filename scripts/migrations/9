@@ -1,0 +1,10 @@
+#!/bin/sh
+# Migration 9 --> 10
+
+# Upgrade kubernetes.apps to new chart version
+kubectl get kuberneteses.apps.quantumreasoning.io -A --no-headers --output=custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name' | while read NAMESPACE NAME; do
+  kubectl patch kuberneteses.apps.quantumreasoning.io -n "$NAMESPACE" "$NAME" --type merge -p '{"appVersion":"0.15.1"}'
+done
+
+# Write version to quantumreasoning-version config
+kubectl create configmap -n quantum-system quantumreasoning-version --from-literal=version=10 --dry-run=client -o yaml | kubectl apply -f-

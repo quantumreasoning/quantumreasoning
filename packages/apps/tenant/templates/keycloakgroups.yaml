@@ -1,0 +1,53 @@
+{{- $quantumConfig := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning" }}
+{{- $oidcEnabled := index $quantumConfig.data "oidc-enabled" }}
+{{- if $oidcEnabled }}
+apiVersion: v1.edp.epam.com/v1
+kind: KeycloakRealmGroup
+metadata:
+  name: {{ include "tenant.name" . }}-view
+  namespace: {{ include "tenant.name" . }}
+spec:
+  name: {{ include "tenant.name" . }}-view
+  realmRef:
+    name: keycloakrealm-quantum
+    kind: ClusterKeycloakRealm
+
+---
+
+apiVersion: v1.edp.epam.com/v1
+kind: KeycloakRealmGroup
+metadata:
+  name: {{ include "tenant.name" . }}-use
+  namespace: {{ include "tenant.name" . }}
+spec:
+  name: {{ include "tenant.name" . }}-use
+  realmRef:
+    name: keycloakrealm-quantum
+    kind: ClusterKeycloakRealm
+
+---
+
+apiVersion: v1.edp.epam.com/v1
+kind: KeycloakRealmGroup
+metadata:
+  name: {{ include "tenant.name" . }}-admin
+  namespace: {{ include "tenant.name" . }}
+spec:
+  name: {{ include "tenant.name" . }}-admin
+  realmRef:
+    name: keycloakrealm-quantum
+    kind: ClusterKeycloakRealm
+
+---
+
+apiVersion: v1.edp.epam.com/v1
+kind: KeycloakRealmGroup
+metadata:
+  name: {{ include "tenant.name" . }}-super-admin
+  namespace: {{ include "tenant.name" . }}
+spec:
+  name: {{ include "tenant.name" . }}-super-admin
+  realmRef:
+    name: keycloakrealm-quantum
+    kind: ClusterKeycloakRealm
+{{- end }}

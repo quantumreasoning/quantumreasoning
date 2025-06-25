@@ -1,0 +1,36 @@
+{{- range .Values.metricsStorages }}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlert
+metadata:
+  name: vmalert-{{ .name }}
+spec:
+  datasource:
+    url: http://vmselect-{{ .name }}.{{ $.Release.Namespace }}.svc:8481/select/0/prometheus
+  evaluationInterval: 15s
+  extraArgs:
+    remoteWrite.disablePathAppend: "true"
+  notifiers:
+  - url: http://vmalertmanager-alertmanager.{{ $.Release.Namespace }}.svc:9093
+  remoteRead:
+    url: http://vmselect-{{ .name }}.{{ $.Release.Namespace }}.svc:8481/select/0/prometheus
+  remoteWrite:
+    url: http://vminsert-{{ .name }}.{{ $.Release.Namespace }}.svc:8480/insert/0/prometheus/api/v1/write
+  resources: {}
+  selectAllByDefault: true
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: vmalert-{{ .name }}
+spec:
+  replicas: 1
+  minReplicas: 1
+  kind: monitoring
+  type: vmalert
+  selector:
+    app.kubernetes.io/instance: vmalert-{{ .name }}
+    app.kubernetes.io/name: vmalert
+  version: {{ $.Chart.Version }}
+{{- break }}
+{{- end }}

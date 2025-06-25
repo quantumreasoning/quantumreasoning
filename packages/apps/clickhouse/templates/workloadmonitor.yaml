@@ -1,0 +1,13 @@
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ $.Release.Name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  minReplicas: 1
+  kind: clickhouse
+  type: clickhouse
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+  version: {{ $.Chart.Version }}

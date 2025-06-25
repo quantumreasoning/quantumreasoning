@@ -1,0 +1,20 @@
+cilium:
+  kubeProxyReplacement: true
+  hostFirewall:
+    enabled: true
+  hubble:
+    enabled: false
+  externalIPs:
+    enabled: true
+  nodePort:
+    enabled: true
+  loadBalancer:
+    algorithm: maglev
+  ipam:
+    mode: "kubernetes"
+  image:
+    repository: ghcr.io/quantumreasoning/quantumreasoning/cilium
+    tag: 1.17.4
+    digest: "sha256:91f628cbdc4652b4459af79c5a0501282cc0bc0a9fc11e3d8cb65e884f94e751"
+  envoy:
+    enabled: false

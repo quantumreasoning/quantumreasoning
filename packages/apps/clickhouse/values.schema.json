@@ -1,0 +1,91 @@
+{
+    "title": "Chart Values",
+    "type": "object",
+    "properties": {
+        "size": {
+            "type": "string",
+            "description": "Size of Persistent Volume for data",
+            "default": "10Gi"
+        },
+        "logStorageSize": {
+            "type": "string",
+            "description": "Size of Persistent Volume for logs",
+            "default": "2Gi"
+        },
+        "shards": {
+            "type": "number",
+            "description": "Number of Clickhouse shards",
+            "default": 1
+        },
+        "replicas": {
+            "type": "number",
+            "description": "Number of Clickhouse replicas",
+            "default": 2
+        },
+        "storageClass": {
+            "type": "string",
+            "description": "StorageClass used to store the data",
+            "default": ""
+        },
+        "logTTL": {
+            "type": "number",
+            "description": "TTL (expiration time) for query_log and query_thread_log",
+            "default": 15
+        },
+        "backup": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable periodic backups",
+                    "default": false
+                },
+                "s3Region": {
+                    "type": "string",
+                    "description": "AWS S3 region where backups are stored",
+                    "default": "us-east-1"
+                },
+                "s3Bucket": {
+                    "type": "string",
+                    "description": "S3 bucket used for storing backups",
+                    "default": "s3.example.org/clickhouse-backups"
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "Cron schedule for automated backups",
+                    "default": "0 2 * * *"
+                },
+                "cleanupStrategy": {
+                    "type": "string",
+                    "description": "Retention strategy for cleaning up old backups",
+                    "default": "--keep-last=3 --keep-daily=3 --keep-within-weekly=1m"
+                },
+                "s3AccessKey": {
+                    "type": "string",
+                    "description": "Access key for S3, used for authentication",
+                    "default": "oobaiRus9pah8PhohL1ThaeTa4UVa7gu"
+                },
+                "s3SecretKey": {
+                    "type": "string",
+                    "description": "Secret key for S3, used for authentication",
+                    "default": "ju3eum4dekeich9ahM1te8waeGai0oog"
+                },
+                "resticPassword": {
+                    "type": "string",
+                    "description": "Password for Restic backup encryption",
+                    "default": "ChaXoveekoh6eigh4siesheeda2quai0"
+                }
+            }
+        },
+        "resources": {
+            "type": "object",
+            "description": "Explicit CPU/memory resource requests and limits for the Clickhouse service",
+            "default": {}
+        },
+        "resourcesPreset": {
+            "type": "string",
+            "description": "Use a common resources preset when `resources` is not set explicitly.",
+            "default": "small"
+        }
+    }
+}

@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quantum-system
+  labels:
+    quantumreasoning.io/system: "true"
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: quantumreasoning
+  namespace: quantum-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: quantumreasoning
+subjects:
+- kind: ServiceAccount
+  name: quantumreasoning
+  namespace: quantum-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quantumreasoning
+  namespace: quantum-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quantumreasoning
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: quantumreasoning
+    spec:
+      hostNetwork: true
+      serviceAccountName: quantumreasoning
+      containers:
+      - name: quantumreasoning
+        image: "{{ .Values.quantumreasoning.image }}"
+        env:
+        - name: KUBERNETES_SERVICE_HOST
+          value: localhost
+        - name: KUBERNETES_SERVICE_PORT
+          value: "7445"
+        - name: K8S_AWAIT_ELECTION_ENABLED
+          value: "1"
+        - name: K8S_AWAIT_ELECTION_NAME
+          value: quantumreasoning
+        - name: K8S_AWAIT_ELECTION_LOCK_NAME
+          value: quantumreasoning
+        - name: K8S_AWAIT_ELECTION_LOCK_NAMESPACE
+          value: quantum-system
+        - name: K8S_AWAIT_ELECTION_IDENTITY
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+      - name: assets
+        image: "{{ .Values.quantumreasoning.image }}"
+        command:
+        - /usr/bin/quantumreasoning-assets-server
+        - "-dir=/quantumreasoning/assets"
+        - "-address=:8123"
+        ports:
+        - name: http
+          containerPort: 8123
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoSchedule"
+      - key: "node.cilium.io/agent-not-ready"
+        operator: "Exists"
+        effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quantumreasoning
+  namespace: quantum-system
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8123
+  selector:
+    app: quantumreasoning
+  type: ClusterIP

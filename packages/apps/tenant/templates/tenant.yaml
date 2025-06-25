@@ -1,0 +1,401 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "tenant.name" . }}
+  namespace: {{ include "tenant.name" . }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "tenant.name" . }}
+  namespace: {{ include "tenant.name" . }}
+  annotations:
+    kubernetes.io/service-account.name: {{ include "tenant.name" . }}
+type: kubernetes.io/service-account-token
+---
+# == default role ==
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tenant.name" . }}
+  namespace: {{ include "tenant.name" . }}
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "persistentvolumes", "endpoints", "events", "resourcequotas"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles"]
+  verbs: ["get"]
+- apiGroups: ["apps.quantumreasoning.io"]
+  resources: ['*']
+  verbs: ['*']
+- apiGroups:
+  - quantumreasoning.io
+  resources:
+  - workloadmonitors
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tenant.name" . }}
+  namespace: {{ include "tenant.name" . }}
+subjects:
+{{- if ne .Release.Namespace "tenant-root" }}
+- kind: ServiceAccount
+  name: tenant-root
+  namespace: tenant-root
+{{- end }}
+{{- if hasPrefix "tenant-" .Release.Namespace }}
+{{- $parts := splitList "-" .Release.Namespace }}
+{{- range $i, $v := $parts }}
+{{- if ne $i 0 }}
+- kind: ServiceAccount
+  name: {{ join "-" (slice $parts 0 (add $i 1)) }}
+  namespace: {{ join "-" (slice $parts 0 (add $i 1)) }}
+{{- end }}
+{{- end }}
+{{- end }}
+- kind: ServiceAccount
+  name: {{ include "tenant.name" . }}
+  namespace: {{ include "tenant.name" . }}
+roleRef:
+  kind: Role
+  name: {{ include "tenant.name" . }}
+  apiGroup: rbac.authorization.k8s.io
+---
+# == view role ==
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "tenant.name" . }}-view
+  namespace: {{ include "tenant.name" . }}
+rules:
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+    verbs:
+      - get
+  - apiGroups:
+      - apps.quantumreasoning.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - persistentvolumes
+      - endpoints
+      - events
+      - resourcequotas
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+    - quantumreasoning.io
+    resources:
+    - workloadmonitors
+    verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "tenant.name" . }}-view
+  namespace: {{ include "tenant.name" . }}
+subjects:
+{{ include "quantum-lib.rbac.subjectsForTenant" (list "view" (include "tenant.name" .)) | nindent 2 }}
+roleRef:
+  kind: Role
+  name: {{ include "tenant.name" . }}-view
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# == use role ==
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "tenant.name" . }}-use
+  namespace: {{ include "tenant.name" . }}
+rules:
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources:
+    - roles
+    verbs:
+    - get
+  - apiGroups: ["apps.quantumreasoning.io"]
+    resources:
+    - "*"
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups: [""]
+    resources:
+      - pods
+      - services
+      - persistentvolumes
+      - endpoints
+      - events
+      - resourcequotas
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+    - ingresses
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups: ["subresources.kubevirt.io"]
+    resources:
+    - virtualmachineinstances/console
+    - virtualmachineinstances/vnc
+    verbs:
+    - get
+    - list
+  - apiGroups: ["subresources.kubevirt.io"]
+    resources:
+      - virtualmachineinstances/portforward
+    verbs:
+      - get
+      - update
+  - apiGroups:
+    - quantumreasoning.io
+    resources:
+    - workloadmonitors
+    verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "tenant.name" . }}-use
+  namespace: {{ include "tenant.name" . }}
+subjects:
+{{ include "quantum-lib.rbac.subjectsForTenant" (list "use" (include "tenant.name" .)) | nindent 2 }}
+roleRef:
+  kind: Role
+  name: {{ include "tenant.name" . }}-use
+  apiGroup: rbac.authorization.k8s.io
+---
+# == admin role ==
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "tenant.name" . }}-admin
+  namespace: {{ include "tenant.name" . }}
+rules:
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources:
+    - roles
+    verbs:
+    - get
+  - apiGroups: [""]
+    resources:
+      - pods
+      - services
+      - persistentvolumes
+      - endpoints
+      - events
+      - resourcequotas
+    verbs:
+    - get
+    - list
+    - watch
+    - delete
+  - apiGroups: ["kubevirt.io"]
+    resources:
+    - virtualmachines
+    verbs:
+    - get
+    - list
+  - apiGroups: ["subresources.kubevirt.io"]
+    resources:
+    - virtualmachineinstances/console
+    - virtualmachineinstances/vnc
+    verbs:
+    - get
+    - list
+  - apiGroups: ["subresources.kubevirt.io"]
+    resources:
+      - virtualmachineinstances/portforward
+    verbs:
+      - get
+      - update
+  - apiGroups: ["apps.quantumreasoning.io"]
+    resources:
+    - buckets
+    - clickhouses
+    - ferretdb
+    - foos
+    - httpcaches
+    - kafkas
+    - kuberneteses
+    - mysqls
+    - natses
+    - postgreses
+    - rabbitmqs
+    - redises
+    - seaweedfses
+    - tcpbalancers
+    - virtualmachines
+    - vmdisks
+    - vminstances
+    - infos
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - quantumreasoning.io
+    resources:
+    - workloadmonitors
+    verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "tenant.name" . }}-admin
+  namespace: {{ include "tenant.name" . }}
+subjects:
+{{ include "quantum-lib.rbac.subjectsForTenant" (list "admin" (include "tenant.name" .)) | nindent 2 }}
+roleRef:
+  kind: Role
+  name: {{ include "tenant.name" . }}-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+# == super admin role ==
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "tenant.name" . }}-super-admin
+  namespace: {{ include "tenant.name" . }}
+rules:
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources:
+    - roles
+    verbs:
+    - get
+  - apiGroups: [""]
+    resources:
+      - pods
+      - services
+      - persistentvolumes
+      - endpoints
+      - events
+      - resourcequotas
+    verbs:
+    - get
+    - list
+    - watch
+    - delete
+  - apiGroups: ["kubevirt.io"]
+    resources:
+    - virtualmachines
+    verbs:
+    - '*'
+  - apiGroups: ["subresources.kubevirt.io"]
+    resources:
+    - virtualmachineinstances/console
+    - virtualmachineinstances/vnc
+    verbs:
+    - get
+    - list
+  - apiGroups: ["subresources.kubevirt.io"]
+    resources:
+      - virtualmachineinstances/portforward
+    verbs:
+      - get
+      - update
+  - apiGroups: ["apps.quantumreasoning.io"]
+    resources:
+    - '*'
+    verbs:
+    - '*'
+  - apiGroups:
+    - quantumreasoning.io
+    resources:
+    - workloadmonitors
+    verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "tenant.name" . }}-super-admin
+  namespace: {{ include "tenant.name" . }}
+subjects:
+{{ include "quantum-lib.rbac.subjectsForTenant" (list "super-admin" (include "tenant.name" .) ) | nindent 2 }}
+roleRef:
+  kind: Role
+  name: {{ include "tenant.name" . }}-super-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+# == dashboard role ==
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tenant.name" . }}
+  namespace: quantum-public
+rules:
+- apiGroups: ["source.toolkit.fluxcd.io"]
+  resources: ["helmrepositories"]
+  verbs: ["get", "list"]
+- apiGroups: ["source.toolkit.fluxcd.io"]
+  resources: ["helmcharts"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tenant.name" . }}
+  namespace: quantum-public
+subjects:
+- kind: Group
+  name: {{ include "tenant.name" . }}-super-admin
+  apiGroup: rbac.authorization.k8s.io
+- kind: Group
+  name: {{ include "tenant.name" . }}-admin
+  apiGroup: rbac.authorization.k8s.io
+- kind: Group
+  name: {{ include "tenant.name" . }}-use
+  apiGroup: rbac.authorization.k8s.io
+- kind: Group
+  name: {{ include "tenant.name" . }}-view
+  apiGroup: rbac.authorization.k8s.io
+- kind: ServiceAccount
+  name: {{ include "tenant.name" . }}
+  namespace: {{ include "tenant.name" . }}
+roleRef:
+  kind: Role
+  name: {{ include "tenant.name" . }}
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,97 @@
+## @section Common parameters
+
+## @param external Enable external access from outside the cluster
+## @param size Persistent Volume size
+## @param replicas Number of Postgres replicas
+## @param storageClass StorageClass used to store the data
+##
+external: false
+size: 10Gi
+replicas: 2
+storageClass: ""
+
+## Server Configuration
+## @param postgresql.parameters.max_connections Determines the maximum number of concurrent connections to the database server. The default is typically 100 connections
+postgresql:
+  parameters:
+    max_connections: 100
+
+## Configuration for the quorum-based synchronous replication
+## @param quorum.minSyncReplicas Minimum number of synchronous replicas that must acknowledge a transaction before it is considered committed.
+## @param quorum.maxSyncReplicas Maximum number of synchronous replicas that can acknowledge a transaction (must be lower than the number of instances).
+quorum:
+  minSyncReplicas: 0
+  maxSyncReplicas: 0
+
+## @section Configuration parameters
+
+## @param users [object] Users configuration
+## Example:
+## users:
+##   user1:
+##     password: strongpassword
+##   user2:
+##     password: hackme
+##   airflow:
+##     password: qwerty123
+##   debezium:
+##     replication: true
+##
+users: {}
+
+## @param databases Databases configuration
+## Example:
+## databases:
+##   myapp:
+##     roles:
+##       admin:
+##       - user1
+##       - debezium
+##       readonly:
+##       - user2
+##   airflow:
+##     roles:
+##       admin:
+##       - airflow
+##     extensions:
+##     - hstore
+databases: {}
+
+## @section Backup parameters
+
+## @param backup.enabled Enable pereiodic backups
+## @param backup.schedule Cron schedule for automated backups
+## @param backup.retentionPolicy The retention policy
+## @param backup.destinationPath The path where to store the backup (i.e. s3://bucket/path/to/folder)
+## @param backup.endpointURL Endpoint to be used to upload data to the cloud
+## @param backup.s3AccessKey The access key for S3, used for authentication
+## @param backup.s3SecretKey The secret key for S3, used for authentication
+backup:
+  enabled: false
+  retentionPolicy: 30d
+  destinationPath: s3://BUCKET_NAME/
+  endpointURL: http://minio-gateway-service:9000
+  schedule: "0 2 * * * *"
+  s3AccessKey: oobaiRus9pah8PhohL1ThaeTa4UVa7gu
+  s3SecretKey: ju3eum4dekeich9ahM1te8waeGai0oog
+
+## @section Bootstrap parameters
+
+## @param bootstrap.enabled Restore cluster from backup
+## @param bootstrap.recoveryTime Time stamp up to which recovery will proceed, expressed in RFC 3339 format, if empty, will restore latest
+## @param bootstrap.oldName Name of cluster before deleting
+##
+bootstrap:
+  enabled: false
+  # example: 2020-11-26 15:22:00.00000+00
+  recoveryTime: ""
+  oldName: ""
+
+## @param resources Resources
+resources: {}
+ # resources:
+ #   cpu: 4000m
+ #   memory: 4Gi
+ 
+## @param resourcesPreset Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)
+resourcesPreset: "micro"

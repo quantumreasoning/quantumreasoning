@@ -1,0 +1,1 @@
+ghcr.io/quantumreasoning/quantumreasoning/kubevirt-csi-driver:0.24.2@sha256:598ab20550dbf495717e8e123e6b626bb36298f88dde851664301d393ac06ca3

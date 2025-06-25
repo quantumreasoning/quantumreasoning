@@ -1,0 +1,242 @@
+{{- define "calculateQuotaBackendBytes" -}}
+{{- $units := dict "Ki" 1024 "Mi" 1048576 "Gi" 1073741824 -}}
+{{- $value := regexFind "[0-9.]+" . -}}
+{{- $unit := regexFind "[a-zA-Z]+" . -}}
+{{- $numericValue := float64 $value -}}
+{{- $bytes := mulf $numericValue (index $units $unit) -}}
+{{- $result := mulf $bytes 0.95 -}}
+{{- printf "%.0f" $result -}}
+{{- end -}}
+---
+apiVersion: etcd.aenix.io/v1alpha1
+kind: EtcdCluster
+metadata:
+  name: etcd
+spec:
+  options:
+    quota-backend-bytes: {{ include "calculateQuotaBackendBytes" .Values.size | quote }}
+    auto-compaction-mode: "periodic"
+    auto-compaction-retention: "5m"
+    snapshot-count: "10000"
+  replicas: {{ .Values.replicas }}
+  storage:
+    volumeClaimTemplate:
+      spec:
+        resources:
+          requests:
+            storage: {{ .Values.size }}
+        {{- with .Values.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+  security:
+    tls:
+      peerTrustedCASecret: etcd-peer-ca-tls
+      peerSecret: etcd-peer-tls
+      serverSecret: etcd-server-tls
+      clientTrustedCASecret: etcd-ca-tls
+      clientSecret: etcd-client-tls
+  podTemplate:
+    metadata:
+      labels:
+        quantumreasoning.io/service: etcd
+    spec:
+      containers:
+      - name: etcd
+        ports:
+        - name: metrics
+          containerPort: 2381
+          protocol: TCP
+        {{- with .Values.resources }}
+        resources: {{- toYaml . | nindent 10 }}
+        {{- end }}
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/instance: etcd
+  podDisruptionBudgetTemplate: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: etcd-selfsigning-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-peer-ca
+spec:
+  isCA: true
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  commonName: etcd-peer-ca
+  duration: 87600h
+  subject:
+    organizations:
+      - {{ .Release.Namespace }}
+    organizationalUnits:
+      - {{ .Release.Name }}
+  secretName: etcd-peer-ca-tls
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: etcd-selfsigning-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-ca
+spec:
+  isCA: true
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "cert sign"
+  commonName: etcd-ca
+  duration: 87600h
+  subject:
+    organizations:
+      - {{ .Release.Namespace }}
+    organizationalUnits:
+      - {{ .Release.Name }}
+  secretName: etcd-ca-tls
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: etcd-selfsigning-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: etcd-peer-issuer
+spec:
+  ca:
+    secretName: etcd-peer-ca-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: etcd-issuer
+spec:
+  ca:
+    secretName: etcd-ca-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-server
+spec:
+  commonName: etcd-server
+  secretName: etcd-server-tls
+  subject:
+    organizations:
+      - {{ .Release.Namespace }}
+    organizationalUnits:
+      - {{ .Release.Name }}
+  isCA: false
+  usages:
+    - "client auth"
+    - "server auth"
+    - "signing"
+    - "key encipherment"
+  dnsNames:
+  {{- range $i := until (int $.Values.replicas) }}
+  - etcd-{{ $i }}
+  - etcd-{{ $i }}.etcd-headless
+  - etcd-{{ $i }}.etcd-headless.{{ $.Release.Namespace }}.svc
+  {{- end }}
+  - localhost
+  ipAddresses:
+  - "127.0.0.1"
+  privateKey:
+    rotationPolicy: Always
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: etcd-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-peer
+spec:
+  commonName: etcd-peer
+  secretName: etcd-peer-tls
+  subject:
+    organizations:
+      - {{ .Release.Namespace }}
+    organizationalUnits:
+      - {{ .Release.Name }}
+  isCA: false
+  usages:
+    - "server auth"
+    - "client auth"
+    - "signing"
+    - "key encipherment"
+  dnsNames:
+  {{- range $i := until (int $.Values.replicas) }}
+  - etcd-{{ $i }}
+  - etcd-{{ $i }}.etcd-headless
+  - etcd-{{ $i }}.etcd-headless.{{ $.Release.Namespace }}.svc
+  {{- end }}
+  - localhost
+  ipAddresses:
+  - "127.0.0.1"
+  privateKey:
+    rotationPolicy: Always
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: etcd-peer-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-client
+spec:
+  commonName: root
+  secretName: etcd-client-tls
+  subject:
+    organizations:
+      - {{ .Release.Namespace }}
+    organizationalUnits:
+      - {{ .Release.Name }}
+  usages:
+  - "signing"
+  - "key encipherment"
+  - "client auth"
+  privateKey:
+    rotationPolicy: Always
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: etcd-issuer
+    kind: Issuer
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ $.Release.Name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  minReplicas: {{ div .Values.replicas 2 | add1 }}
+  kind: etcd
+  type: etcd
+  selector:
+    app.kubernetes.io/instance: etcd
+    app.kubernetes.io/managed-by: etcd-operator
+    app.kubernetes.io/name: etcd
+  version: {{ $.Chart.Version }}

@@ -1,0 +1,131 @@
+{
+    "title": "Chart Values",
+    "type": "object",
+    "properties": {
+        "external": {
+            "type": "boolean",
+            "description": "Enable external access from outside the cluster",
+            "default": false
+        },
+        "size": {
+            "type": "string",
+            "description": "Persistent Volume size",
+            "default": "10Gi"
+        },
+        "replicas": {
+            "type": "number",
+            "description": "Number of Postgres replicas",
+            "default": 2
+        },
+        "storageClass": {
+            "type": "string",
+            "description": "StorageClass used to store the data",
+            "default": ""
+        },
+        "postgresql": {
+            "type": "object",
+            "properties": {
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "max_connections": {
+                            "type": "number",
+                            "description": "Determines the maximum number of concurrent connections to the database server. The default is typically 100 connections",
+                            "default": 100
+                        }
+                    }
+                }
+            }
+        },
+        "quorum": {
+            "type": "object",
+            "properties": {
+                "minSyncReplicas": {
+                    "type": "number",
+                    "description": "Minimum number of synchronous replicas that must acknowledge a transaction before it is considered committed.",
+                    "default": 0
+                },
+                "maxSyncReplicas": {
+                    "type": "number",
+                    "description": "Maximum number of synchronous replicas that can acknowledge a transaction (must be lower than the number of instances).",
+                    "default": 0
+                }
+            }
+        },
+        "databases": {
+            "type": "object",
+            "description": "Databases configuration",
+            "default": {}
+        },
+        "backup": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable pereiodic backups",
+                    "default": false
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "Cron schedule for automated backups",
+                    "default": "0 2 * * * *"
+                },
+                "retentionPolicy": {
+                    "type": "string",
+                    "description": "The retention policy",
+                    "default": "30d"
+                },
+                "destinationPath": {
+                    "type": "string",
+                    "description": "The path where to store the backup (i.e. s3://bucket/path/to/folder)",
+                    "default": "s3://BUCKET_NAME/"
+                },
+                "endpointURL": {
+                    "type": "string",
+                    "description": "Endpoint to be used to upload data to the cloud",
+                    "default": "http://minio-gateway-service:9000"
+                },
+                "s3AccessKey": {
+                    "type": "string",
+                    "description": "The access key for S3, used for authentication",
+                    "default": "oobaiRus9pah8PhohL1ThaeTa4UVa7gu"
+                },
+                "s3SecretKey": {
+                    "type": "string",
+                    "description": "The secret key for S3, used for authentication",
+                    "default": "ju3eum4dekeich9ahM1te8waeGai0oog"
+                }
+            }
+        },
+        "bootstrap": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Restore cluster from backup",
+                    "default": false
+                },
+                "recoveryTime": {
+                    "type": "string",
+                    "description": "Time stamp up to which recovery will proceed, expressed in RFC 3339 format, if empty, will restore latest",
+                    "default": ""
+                },
+                "oldName": {
+                    "type": "string",
+                    "description": "Name of cluster before deleting",
+                    "default": ""
+                }
+            }
+        },
+        "resources": {
+            "type": "object",
+            "description": "Resources",
+            "default": {}
+        },
+        "resourcesPreset": {
+            "type": "string",
+            "description": "Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)",
+            "default": "micro"
+        }
+    }
+}

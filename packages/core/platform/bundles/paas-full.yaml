@@ -1,0 +1,401 @@
+{{- $quantumConfig := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning" }}
+{{- $clusterDomain := (index $quantumConfig.data "cluster-domain") | default "quantum.local" }}
+{{- $oidcEnabled := index $quantumConfig.data "oidc-enabled" }}
+{{- $host := index $quantumConfig.data "root-host" }}
+{{- if not $host }}
+{{- fail "ERROR need root-host in quantumreasoning ConfigMap" }}
+{{- end }}
+{{- $apiServerEndpoint := index $quantumConfig.data "api-server-endpoint" }}
+{{- if not $apiServerEndpoint }}
+{{- fail "ERROR need api-server-endpoint in quantumreasoning ConfigMap" }}
+{{- end }}
+
+releases:
+- name: fluxcd-operator
+  releaseName: fluxcd-operator
+  chart: quantum-fluxcd-operator
+  namespace: quantum-fluxcd
+  privileged: true
+  dependsOn: []
+
+- name: fluxcd
+  releaseName: fluxcd
+  chart: quantum-fluxcd
+  namespace: quantum-fluxcd
+  dependsOn: [fluxcd-operator,cilium,kubeovn]
+  values:
+    flux-instance:
+      instance:
+        cluster:
+          domain: {{ $clusterDomain }}
+
+- name: cilium
+  releaseName: cilium
+  chart: quantum-cilium
+  namespace: quantum-cilium
+  privileged: true
+  dependsOn: []
+  valuesFiles:
+  - values.yaml
+  - values-talos.yaml
+  - values-kubeovn.yaml
+
+- name: cilium-networkpolicy
+  releaseName: cilium-networkpolicy
+  chart: quantum-cilium-networkpolicy
+  namespace: quantum-cilium
+  privileged: true
+  dependsOn: [cilium]
+
+- name: kubeovn
+  releaseName: kubeovn
+  chart: quantum-kubeovn
+  namespace: quantum-kubeovn
+  privileged: true
+  dependsOn: [cilium]
+  values:
+    quantumreasoning:
+      nodesHash: {{ include "quantumreasoning.master-node-ips" . | sha256sum }}
+    kube-ovn:
+      ipv4:
+        POD_CIDR: "{{ index $quantumConfig.data "ipv4-pod-cidr" }}"
+        POD_GATEWAY: "{{ index $quantumConfig.data "ipv4-pod-gateway" }}"
+        SVC_CIDR: "{{ index $quantumConfig.data "ipv4-svc-cidr" }}"
+        JOIN_CIDR: "{{ index $quantumConfig.data "ipv4-join-cidr" }}"
+
+- name: kubeovn-webhook
+  releaseName: kubeovn-webhook
+  chart: quantum-kubeovn-webhook
+  namespace: quantum-kubeovn
+  privileged: true
+  dependsOn: [cilium,kubeovn,cert-manager]
+
+- name: quantum-proxy
+  releaseName: quantumreasoning
+  chart: quantum-quantum-proxy
+  namespace: quantum-system
+  dependsOn: [cilium,kubeovn]
+
+- name: cert-manager-crds
+  releaseName: cert-manager-crds
+  chart: quantum-cert-manager-crds
+  namespace: quantum-cert-manager
+  dependsOn: [cilium, kubeovn]
+
+- name: quantumreasoning-api
+  releaseName: quantumreasoning-api
+  chart: quantum-quantumreasoning-api
+  namespace: quantum-system
+  dependsOn: [cilium,kubeovn]
+
+- name: quantumreasoning-controller
+  releaseName: quantumreasoning-controller
+  chart: quantum-quantumreasoning-controller
+  namespace: quantum-system
+  dependsOn: [cilium,kubeovn]
+  {{- if eq (index $quantumConfig.data "telemetry-enabled") "false" }}
+  values:
+    quantumreasoningController:
+      disableTelemetry: true
+  {{- end }}
+
+- name: cert-manager
+  releaseName: cert-manager
+  chart: quantum-cert-manager
+  namespace: quantum-cert-manager
+  dependsOn: [cert-manager-crds]
+
+- name: cert-manager-issuers
+  releaseName: cert-manager-issuers
+  chart: quantum-cert-manager-issuers
+  namespace: quantum-cert-manager
+  dependsOn: [cilium,kubeovn,cert-manager]
+
+- name: victoria-metrics-operator
+  releaseName: victoria-metrics-operator
+  chart: quantum-victoria-metrics-operator
+  namespace: quantum-victoria-metrics-operator
+  dependsOn: [cilium,kubeovn,cert-manager]
+
+- name: monitoring-agents
+  releaseName: monitoring-agents
+  chart: quantum-monitoring-agents
+  namespace: quantum-monitoring
+  privileged: true
+  dependsOn: [victoria-metrics-operator, vertical-pod-autoscaler-crds]
+  values:
+    scrapeRules:
+      etcd:
+        enabled: true
+
+- name: kubevirt-operator
+  releaseName: kubevirt-operator
+  chart: quantum-kubevirt-operator
+  namespace: quantum-kubevirt
+  dependsOn: [cilium,kubeovn,victoria-metrics-operator]
+
+- name: kubevirt
+  releaseName: kubevirt
+  chart: quantum-kubevirt
+  namespace: quantum-kubevirt
+  privileged: true
+  dependsOn: [cilium,kubeovn,kubevirt-operator]
+  {{- $cpuAllocationRatio := index $quantumConfig.data "cpu-allocation-ratio" }}
+  {{- if $cpuAllocationRatio }}
+  values:
+    cpuAllocationRatio: {{ $cpuAllocationRatio }}
+  {{- end }}
+
+- name: kubevirt-instancetypes
+  releaseName: kubevirt-instancetypes
+  chart: quantum-kubevirt-instancetypes
+  namespace: quantum-kubevirt
+  dependsOn: [cilium,kubeovn,kubevirt-operator,kubevirt]
+
+- name: kubevirt-cdi-operator
+  releaseName: kubevirt-cdi-operator
+  chart: quantum-kubevirt-cdi-operator
+  namespace: quantum-kubevirt-cdi
+  dependsOn: [cilium,kubeovn]
+
+- name: kubevirt-cdi
+  releaseName: kubevirt-cdi
+  chart: quantum-kubevirt-cdi
+  namespace: quantum-kubevirt-cdi
+  dependsOn: [cilium,kubeovn,kubevirt-cdi-operator]
+
+- name: gpu-operator
+  releaseName: gpu-operator
+  chart: quantum-gpu-operator
+  namespace: quantum-gpu-operator
+  privileged: true
+  optional: true
+  dependsOn: [cilium,kubeovn]
+  valuesFiles:
+  - values.yaml
+  - values-talos.yaml
+
+- name: metallb
+  releaseName: metallb
+  chart: quantum-metallb
+  namespace: quantum-metallb
+  privileged: true
+  dependsOn: [cilium,kubeovn]
+
+- name: etcd-operator
+  releaseName: etcd-operator
+  chart: quantum-etcd-operator
+  namespace: quantum-etcd-operator
+  dependsOn: [cilium,kubeovn,cert-manager]
+
+- name: grafana-operator
+  releaseName: grafana-operator
+  chart: quantum-grafana-operator
+  namespace: quantum-grafana-operator
+  dependsOn: [cilium,kubeovn]
+
+- name: mariadb-operator
+  releaseName: mariadb-operator
+  chart: quantum-mariadb-operator
+  namespace: quantum-mariadb-operator
+  dependsOn: [cilium,kubeovn,cert-manager,victoria-metrics-operator]
+  values:
+    mariadb-operator:
+      clusterName: {{ $clusterDomain }}
+
+- name: postgres-operator
+  releaseName: postgres-operator
+  chart: quantum-postgres-operator
+  namespace: quantum-postgres-operator
+  dependsOn: [cilium,kubeovn,cert-manager]
+
+- name: kafka-operator
+  releaseName: kafka-operator
+  chart: quantum-kafka-operator
+  namespace: quantum-kafka-operator
+  dependsOn: [cilium,kubeovn,victoria-metrics-operator]
+  values:
+    strimzi-kafka-operator:
+      kubernetesServiceDnsDomain: {{ $clusterDomain }}
+
+- name: clickhouse-operator
+  releaseName: clickhouse-operator
+  chart: quantum-clickhouse-operator
+  namespace: quantum-clickhouse-operator
+  dependsOn: [cilium,kubeovn,victoria-metrics-operator]
+
+- name: rabbitmq-operator
+  releaseName: rabbitmq-operator
+  chart: quantum-rabbitmq-operator
+  namespace: quantum-rabbitmq-operator
+  dependsOn: [cilium,kubeovn]
+
+- name: redis-operator
+  releaseName: redis-operator
+  chart: quantum-redis-operator
+  namespace: quantum-redis-operator
+  dependsOn: [cilium,kubeovn]
+
+- name: piraeus-operator
+  releaseName: piraeus-operator
+  chart: quantum-piraeus-operator
+  namespace: quantum-linstor
+  dependsOn: [cilium,kubeovn,cert-manager,victoria-metrics-operator]
+
+- name: linstor
+  releaseName: linstor
+  chart: quantum-linstor
+  namespace: quantum-linstor
+  privileged: true
+  dependsOn: [piraeus-operator,cilium,kubeovn,cert-manager,snapshot-controller]
+
+- name: snapshot-controller
+  releaseName: snapshot-controller
+  chart: quantum-snapshot-controller
+  namespace: quantum-snapshot-controller
+  dependsOn: [cilium,kubeovn,cert-manager-issuers]
+
+- name: objectstorage-controller
+  releaseName: objectstorage-controller
+  chart: quantum-objectstorage-controller
+  namespace: quantum-objectstorage-controller
+  dependsOn: [cilium,kubeovn]
+
+- name: telepresence
+  releaseName: traffic-manager
+  chart: quantum-telepresence
+  namespace: quantum-telepresence
+  optional: true
+  dependsOn: [cilium,kubeovn]
+
+- name: dashboard
+  releaseName: dashboard
+  chart: quantum-dashboard
+  namespace: quantum-dashboard
+  values:
+    {{- $dashboardKCconfig := lookup "v1" "ConfigMap" "quantum-dashboard" "kubeapps-auth-config" }}
+    {{- $dashboardKCValues := dig "data" "values.yaml" "" $dashboardKCconfig | fromYaml }}
+    {{- toYaml (deepCopy $dashboardKCValues | mergeOverwrite (fromYaml (include "quantumreasoning.defaultDashboardValues" .))) | nindent 4 }}
+  dependsOn:
+  - cilium
+  - kubeovn
+  {{- if eq $oidcEnabled "true" }}
+  - keycloak-configure
+  {{- end }}
+
+- name: kamaji
+  releaseName: kamaji
+  chart: quantum-kamaji
+  namespace: quantum-kamaji
+  dependsOn: [cilium,kubeovn,cert-manager]
+
+- name: capi-operator
+  releaseName: capi-operator
+  chart: quantum-capi-operator
+  namespace: quantum-cluster-api
+  privileged: true
+  dependsOn: [cilium,kubeovn,cert-manager]
+
+- name: capi-providers-bootstrap
+  releaseName: capi-providers-bootstrap
+  chart: quantum-capi-providers-bootstrap
+  namespace: quantum-cluster-api
+  privileged: true
+  dependsOn: [cilium,kubeovn,capi-operator]
+
+- name: capi-providers-core
+  releaseName: capi-providers-core
+  chart: quantum-capi-providers-core
+  namespace: quantum-cluster-api
+  privileged: true
+  dependsOn: [cilium,kubeovn,capi-operator]
+
+- name: capi-providers-cpprovider
+  releaseName: capi-providers-cpprovider
+  chart: quantum-capi-providers-cpprovider
+  namespace: quantum-cluster-api
+  privileged: true
+  dependsOn: [cilium,kubeovn,capi-operator]
+
+- name: capi-providers-infraprovider
+  releaseName: capi-providers-infraprovider
+  chart: quantum-capi-providers-infraprovider
+  namespace: quantum-cluster-api
+  privileged: true
+  dependsOn: [cilium,kubeovn,capi-operator]
+
+- name: external-dns
+  releaseName: external-dns
+  chart: quantum-external-dns
+  namespace: quantum-external-dns
+  optional: true
+  dependsOn: [cilium,kubeovn]
+
+- name: external-secrets-operator
+  releaseName: external-secrets-operator
+  chart: quantum-external-secrets-operator
+  namespace: quantum-external-secrets-operator
+  optional: true
+  dependsOn: [cilium,kubeovn]
+
+- name: bootbox
+  releaseName: bootbox
+  chart: quantum-bootbox
+  namespace: quantum-bootbox
+  privileged: true
+  optional: true
+  dependsOn: [cilium,kubeovn]
+
+{{- if $oidcEnabled }}
+- name: keycloak
+  releaseName: keycloak
+  chart: quantum-keycloak
+  namespace: quantum-keycloak
+  dependsOn: [postgres-operator]
+
+- name: keycloak-operator
+  releaseName: keycloak-operator
+  chart: quantum-keycloak-operator
+  namespace: quantum-keycloak
+  dependsOn: [keycloak]
+
+- name: keycloak-configure
+  releaseName: keycloak-configure
+  chart: quantum-keycloak-configure
+  namespace: quantum-keycloak
+  dependsOn: [keycloak-operator]
+  values:
+    quantumreasoning:
+      configHash: {{ $quantumConfig | toJson | sha256sum }}
+{{- end }}
+
+- name: goldpinger
+  releaseName: goldpinger
+  chart: quantum-goldpinger
+  namespace: quantum-goldpinger
+  privileged: true
+  dependsOn: [monitoring-agents]
+
+- name: vertical-pod-autoscaler
+  releaseName: vertical-pod-autoscaler
+  chart: quantum-vertical-pod-autoscaler
+  namespace: quantum-vertical-pod-autoscaler
+  privileged: true
+  dependsOn: [monitoring-agents]
+  values:
+    vertical-pod-autoscaler:
+      recommender:
+        extraArgs:
+          prometheus-address: http://vmselect-shortterm.tenant-root.svc.{{ $clusterDomain }}:8481/select/0/prometheus/
+
+- name: vertical-pod-autoscaler-crds
+  releaseName: vertical-pod-autoscaler-crds
+  chart: quantum-vertical-pod-autoscaler-crds
+  namespace: quantum-vertical-pod-autoscaler
+  privileged: true
+  dependsOn: [cilium, kubeovn]
+
+- name: reloader
+  releaseName: reloader
+  chart: quantum-reloader
+  namespace: quantum-reloader

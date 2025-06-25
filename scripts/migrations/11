@@ -1,0 +1,21 @@
+#!/bin/sh
+# Migration 11 --> 12
+
+# Recreate daemonset kube-rbac-proxy
+
+if kubectl get daemonset kube-rbac-proxy -n quantum-monitoring; then
+  kubectl delete daemonset kube-rbac-proxy --cascade=orphan -n quantum-monitoring
+fi
+
+if kubectl get helmrelease monitoring-agents -n quantum-monitoring; then
+  timestamp=$(date --rfc-3339=ns)
+  kubectl annotate helmrelease monitoring-agents -n quantum-monitoring \
+    reconcile.fluxcd.io/forceAt="$timestamp" \
+    reconcile.fluxcd.io/requestedAt="$timestamp" \
+    --overwrite
+fi
+
+kubectl delete pods -l app.kubernetes.io/component=kube-rbac-proxy -n quantum-monitoring
+
+# Write version to quantumreasoning-version config
+kubectl create configmap -n quantum-system quantumreasoning-version --from-literal=version=12 --dry-run=client -o yaml | kubectl apply -f-

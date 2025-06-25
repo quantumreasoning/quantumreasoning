@@ -1,0 +1,9 @@
+#!/bin/sh
+# Migration 8 --> 9
+
+if kubectl get clusterrolebinding kubeapps-admin-group; then
+  kubectl delete clusterrolebinding kubeapps-admin-group
+fi
+
+# Write version to quantumreasoning-version config
+kubectl create configmap -n quantum-system quantumreasoning-version --from-literal=version=9 --dry-run=client -o yaml | kubectl apply -f-

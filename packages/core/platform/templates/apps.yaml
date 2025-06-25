@@ -1,0 +1,63 @@
+{{- $quantumConfig := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning" }}
+{{- $bundleName := index $quantumConfig.data "bundle-name" }}
+{{- $bundle := tpl (.Files.Get (printf "bundles/%s.yaml" $bundleName)) . | fromYaml }}
+{{- $host := "example.org" }}
+{{- $host := "example.org" }}
+{{- if $quantumConfig.data }}
+  {{- if hasKey $quantumConfig.data "root-host" }}
+    {{- $host = index $quantumConfig.data "root-host" }}
+  {{- end }}
+{{- end }}
+{{- $tenantRoot := dict }}
+{{- if .Capabilities.APIVersions.Has "helm.toolkit.fluxcd.io/v2" }}
+{{- $tenantRoot = lookup "helm.toolkit.fluxcd.io/v2" "HelmRelease" "tenant-root" "tenant-root" }}
+{{- end }}
+{{- if and $tenantRoot $tenantRoot.spec $tenantRoot.spec.values $tenantRoot.spec.values.host }}
+{{- $host = $tenantRoot.spec.values.host }}
+{{- else }}
+{{- end }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    helm.sh/resource-policy: keep
+    namespace.quantumreasoning.io/etcd: tenant-root
+    namespace.quantumreasoning.io/monitoring: tenant-root
+    namespace.quantumreasoning.io/ingress: tenant-root
+    namespace.quantumreasoning.io/seaweedfs: tenant-root
+    namespace.quantumreasoning.io/host: "{{ $host }}"
+  name: tenant-root
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tenant-root
+  namespace: tenant-root
+  labels:
+    quantumreasoning.io/ui: "true"
+spec:
+  interval: 0s
+  releaseName: tenant-root
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+  chart:
+    spec:
+      chart: tenant
+      sourceRef:
+        kind: HelmRepository
+        name: quantumreasoning-apps
+        namespace: quantum-public
+  values:
+    host: "{{ $host }}"
+  dependsOn:
+  {{- range $x := $bundle.releases }}
+  {{- if has $x.name (list "cilium" "kubeovn") }}
+  - name: {{ $x.name }}
+    namespace: {{ $x.namespace }}
+  {{- end }}
+  {{- end }}

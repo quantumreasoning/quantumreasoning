@@ -1,0 +1,46 @@
+{{- if .Values.addons.gpuOperator.enabled }}
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Release.Name }}-gpu-operator
+  labels:
+    quantumreasoning.io/repository: system
+    quantumreasoning.io/target-cluster-name: {{ .Release.Name }}
+spec:
+  interval: 5m
+  releaseName: gpu-operator
+  chart:
+    spec:
+      chart: quantum-gpu-operator
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: HelmRepository
+        name: quantumreasoning-system
+        namespace: quantum-system
+      version: '>= 0.0.0-0'
+  kubeConfig:
+    secretRef:
+      name: {{ .Release.Name }}-admin-kubeconfig
+      key: super-admin.svc
+  targetNamespace: quantum-gpu-operator
+  storageNamespace: quantum-gpu-operator
+  install:
+    createNamespace: true
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+  {{- with .Values.addons.gpuOperator.valuesOverride }}
+  values:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  dependsOn:
+  {{- if lookup "helm.toolkit.fluxcd.io/v2" "HelmRelease" .Release.Namespace .Release.Name }}
+  - name: {{ .Release.Name }}
+    namespace: {{ .Release.Namespace }}
+  {{- end }}
+  - name: {{ .Release.Name }}-cilium
+    namespace: {{ .Release.Namespace }}
+{{- end }}

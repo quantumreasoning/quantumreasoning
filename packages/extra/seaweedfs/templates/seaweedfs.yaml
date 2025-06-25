@@ -1,0 +1,140 @@
+{{- $myNS := lookup "v1" "Namespace" "" .Release.Namespace }}
+{{- $ingress := index $myNS.metadata.annotations "namespace.quantumreasoning.io/ingress" }}
+{{- $host := index $myNS.metadata.annotations "namespace.quantumreasoning.io/host" }}
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Release.Name }}-system
+spec:
+  chart:
+    spec:
+      chart: quantum-seaweedfs
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: HelmRepository
+        name: quantumreasoning-system
+        namespace: quantum-system
+      version: '>= 0.0.0-0'
+  interval: 1m0s
+  timeout: 5m0s
+  values:
+    global:
+      serviceAccountName: "{{ .Release.Namespace }}-seaweedfs"
+    seaweedfs:
+      master:
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      volume:
+        replicas: {{ .Values.replicas }}
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        # TODO: workaround for non-working online resize
+        podAnnotations:
+          volume-size: "{{ .Values.size }}"
+        dataDirs:
+        - name: data1
+          type: "persistentVolumeClaim"
+          size: "{{ .Values.size }}"
+          {{- with .Values.storageClass }}
+          storageClass: {{ . }}
+          {{- end }}
+          maxVolumes: 0
+      filer:
+        s3:
+          domainName: {{ .Values.host | default (printf "s3.%s" $host) }}
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+      s3:
+        ingress:
+          className: {{ $ingress }}
+          host: {{ .Values.host | default (printf "s3.%s" $host) }}
+          annotations:
+            nginx.ingress.kubernetes.io/proxy-body-size: "0"
+            nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+            acme.cert-manager.io/http01-ingress-class: {{ $ingress }}
+            cert-manager.io/cluster-issuer: letsencrypt-prod
+          tls:
+            - hosts:
+              - {{ .Values.host | default (printf "s3.%s" $host) }}
+              secretName: {{ .Release.Name }}-s3-ingress-tls
+      cosi:
+        driverName: "{{ .Release.Namespace }}.seaweedfs.objectstorage.k8s.io"
+        bucketClassName: "{{ .Release.Namespace }}"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ $.Release.Name }}-master
+spec:
+  replicas: 3
+  minReplicas: 2
+  kind: seaweedfs
+  type: master
+  selector:
+    app.kubernetes.io/component: master
+    app.kubernetes.io/name: seaweedfs
+  version: {{ $.Chart.Version }}
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ $.Release.Name }}-filer
+spec:
+  replicas: 2
+  minReplicas: 1
+  kind: seaweedfs
+  type: filer
+  selector:
+    app.kubernetes.io/component: filer
+    app.kubernetes.io/name: seaweedfs
+  version: {{ $.Chart.Version }}
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ $.Release.Name }}-volume
+spec:
+  replicas: {{ .Values.replicas }}
+  minReplicas: {{ div .Values.replicas 2 | add1 }}
+  kind: seaweedfs
+  type: volume
+  selector:
+    app.kubernetes.io/component: volume
+    app.kubernetes.io/name: seaweedfs
+  version: {{ $.Chart.Version }}
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ $.Release.Name }}-db
+spec:
+  replicas: 2
+  minReplicas: 1
+  kind: seaweedfs
+  type: postgres
+  selector:
+    cnpg.io/cluster: seaweedfs-db
+    cnpg.io/podRole: instance
+  version: {{ $.Chart.Version }}

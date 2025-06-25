@@ -1,0 +1,58 @@
+
+## @section Common parameters
+
+## @param external Enable external access from outside the cluster
+## @param kafka.size Persistent Volume size for Kafka
+## @param kafka.replicas Number of Kafka replicas
+## @param kafka.storageClass StorageClass used to store the Kafka data
+## @param zookeeper.size Persistent Volume size for ZooKeeper
+## @param zookeeper.replicas Number of ZooKeeper replicas
+## @param zookeeper.storageClass StorageClass used to store the ZooKeeper data
+##
+external: false
+kafka:
+  size: 10Gi
+  replicas: 3
+  storageClass: ""
+  ## @param kafka.resources Resources
+  resources: {}
+  # resources:
+  #   cpu: 4000m
+  #   memory: 4Gi
+  
+  ## @param kafka.resourcesPreset Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)
+  resourcesPreset: "small"
+
+zookeeper:
+  size: 5Gi
+  replicas: 3
+  storageClass: ""
+  ## @param zookeeper.resources Resources
+  resources: {}
+  # resources:
+  #   cpu: 4000m
+  #   memory: 4Gi
+  
+  ## @param zookeeper.resourcesPreset Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)
+  resourcesPreset: "small"
+
+## @section Configuration parameters
+
+## @param topics Topics configuration
+## Example:
+## topics:
+##   - name: Results
+##     partitions: 1
+##     replicas: 3
+##     config:
+##       min.insync.replicas: 2
+##   - name: Orders
+##     config:
+##       cleanup.policy: compact
+##       segment.ms: 3600000
+##       max.compaction.lag.ms: 5400000
+##       min.insync.replicas: 2
+##     partitions: 1
+##     replicas: 3
+##
+topics: []

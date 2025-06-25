@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quantumreasoning-controller
+  namespace: quantum-system
+  labels:
+    app: quantumreasoning-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quantumreasoning-controller
+  template:
+    metadata:
+      labels:
+        app: quantumreasoning-controller
+    spec:
+      serviceAccountName: quantumreasoning-controller
+      containers:
+      - name: quantumreasoning-controller
+        image: "{{ .Values.quantumreasoningController.image }}"
+        args:
+        - --quantumreasoning-version={{ .Values.quantumreasoningController.quantumreasoningVersion }}
+        {{- if .Values.quantumreasoningController.debug }}
+        - --zap-log-level=debug
+        {{- else }}
+        - --zap-log-level=info
+        {{- end }}
+        {{- if .Values.quantumreasoningController.disableTelemetry }}
+        - --disable-telemetry
+        {{- end }}

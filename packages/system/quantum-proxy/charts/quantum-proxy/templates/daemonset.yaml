@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "quantum-proxy.fullname" . }}
+  labels:
+    {{- include "quantum-proxy.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "quantum-proxy.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "quantum-proxy.name" . }}
+      annotations:
+        {{- toYaml .Values.daemonset.podAnnotations | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "quantum-proxy.fullname" . }}
+      hostNetwork: {{ .Values.daemonset.hostNetwork }}
+      containers:
+        - name: quantum-proxy
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["NET_ADMIN"]
+      tolerations:
+      - operator: Exists

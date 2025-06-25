@@ -1,0 +1,28 @@
+---
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  name: kubevirt
+  namespace: quantum-kubevirt
+spec:
+  certificateRotateStrategy: {}
+  configuration:
+    commonInstancetypesDeployment:
+      enabled: false
+    developerConfiguration:
+      {{- if .Values.cpuAllocationRatio }}
+      cpuAllocationRatio: {{ .Values.cpuAllocationRatio }}
+      {{- end }}
+      featureGates:
+      - HotplugVolumes
+      - ExpandDisks
+      - LiveMigration
+      - AutoResourceLimitsGate
+      - CPUManager
+      - GPU
+      - VMExport
+    evictionStrategy: LiveMigrate
+  customizeComponents: {}
+  imagePullPolicy: IfNotPresent
+  monitorNamespace: tenant-root
+  workloadUpdateStrategy: {}

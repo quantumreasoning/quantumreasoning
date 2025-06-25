@@ -1,0 +1,7 @@
+mariadb-operator:
+  clusterName: quantum.local
+  metrics:
+    enabled: true
+  webhook:
+    certificate:
+      certManager: true

@@ -1,0 +1,62 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-dashboard-resources
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  resourceNames:
+  - grafana-ingress
+  - alerta
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  resourceNames:
+  - grafana-admin-password
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - ""
+  resources:
+  - services
+  resourceNames:
+  - grafana-service
+  - alerta
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - quantumreasoning.io
+  resources:
+  - workloadmonitors
+  resourceNames:
+  - alerta
+  - grafana
+  - grafana-db
+  - alerta-db
+  - alermanager
+  {{- range .Values.metricsStorages }}
+  - {{ .name }}-vmstorage
+  - {{ .name }}-vmselect
+  - {{ .name }}-vminsert
+  {{- end }}
+  {{- range .Values.logsStorages }}
+  - {{ $.Release.Name }}-vlogs-{{ .name }}
+  {{- end }}
+  {{- range .Values.metricsStorages }}
+  - vmalert-{{ .name }}
+  {{- break }}
+  {{- end }}
+  verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}-dashboard-resources
+subjects:
+{{ include "quantum-lib.rbac.subjectsForTenantAndAccessLevel" (list "admin" .Release.Namespace) }}
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-dashboard-resources
+  apiGroup: rbac.authorization.k8s.io

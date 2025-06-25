@@ -1,0 +1,121 @@
+{{- if and .Values.instanceType (not (lookup "instancetype.kubevirt.io/v1beta1" "VirtualMachineClusterInstancetype" "" .Values.instanceType)) }}
+{{-   fail (printf "Specified instanceType does not exist in the cluster: %s" .Values.instanceType) }}
+{{- end }}
+{{- if and .Values.instanceProfile (not (lookup "instancetype.kubevirt.io/v1beta1" "VirtualMachineClusterPreference" "" .Values.instanceProfile)) }}
+{{-   fail (printf "Specified instanceProfile does not exist in the cluster: %s" .Values.instanceProfile) }}
+{{- end }}
+
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: {{ include "virtual-machine.fullname" . }}
+  labels:
+    {{- include "virtual-machine.labels" . | nindent 4 }}
+spec:
+  running: {{ .Values.running }}
+  {{- with .Values.instanceType }}
+  instancetype:
+    kind: VirtualMachineClusterInstancetype
+    name: {{ . }}
+    {{- end }}
+  {{- with .Values.instanceProfile }}
+  preference:
+    kind: VirtualMachineClusterPreference
+    name: {{ . }}
+    {{- end }}
+  template:
+    metadata:
+      annotations:
+        kubevirt.io/allow-pod-bridge-network-live-migration: "true"
+      labels:
+        {{- include "virtual-machine.labels" . | nindent 8 }}
+    spec:
+      domain:
+        {{- if and .Values.resources .Values.resources.cpu }}
+        cpu:
+          cores: {{ .Values.resources.cpu }}
+        {{- end }}
+        {{- if and .Values.resources .Values.resources.memory }}
+        resources:
+          requests:
+            memory: {{ .Values.resources.memory | quote }}
+        {{- end }}
+        firmware:
+          uuid: {{ include "virtual-machine.stableUuid" . }}
+        devices:
+          {{- if .Values.gpus }}
+          gpus:
+          {{- range $i, $gpu := .Values.gpus }}
+          - name: gpu{{ add $i 1 }}
+            deviceName: {{ $gpu.name }}
+          {{- end }}
+          {{- end }}
+          disks:
+          {{- range $i, $disk := .Values.disks }}
+          - name: disk-{{ $disk.name }}
+            {{- $disk := lookup "cdi.kubevirt.io/v1beta1" "DataVolume" $.Release.Namespace (printf "vm-disk-%s" $disk.name) }}
+            {{- if $disk }}
+            {{- if and (hasKey $disk.metadata.annotations "vm-disk.quantumreasoning.io/optical") (eq (index $disk.metadata.annotations "vm-disk.quantumreasoning.io/optical") "true") }}
+            cdrom: {}
+            {{- else }}
+            disk: {}
+            {{- end }}
+            {{- if eq $i 0 }}
+            bootOrder: 1
+            {{- end }}
+            {{- else }}
+            {{-   fail (printf "Specified disk not exists in cluster: %s" .name) }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.sshKeys .Values.cloudInit }}
+          - name: cloudinitdisk
+            disk:
+              bus: virtio
+          {{- end }}
+          interfaces:
+          - name: default
+            bridge: {}
+        machine:
+          type: ""
+      {{- with .Values.sshKeys }}
+      accessCredentials:
+      - sshPublicKey:
+          source:
+            secret:
+              secretName: {{ include "virtual-machine.fullname" $ }}-ssh-keys
+          propagationMethod:
+            # keys will be injected into metadata part of cloud-init disk
+            noCloud: {}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      {{- range .Values.disks }}
+      - name: disk-{{ .name }}
+        dataVolume:
+          name: vm-disk-{{ .name }}
+      {{- end }}
+      {{- if and .Values.sshKeys .Values.cloudInit }}
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          secretRef:
+            name: {{ include "virtual-machine.fullname" . }}-cloud-init
+      {{- else if .Values.sshKeys }}
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          userData: |
+            {{ printf "%s" "#cloud-config" }}
+            ssh_authorized_keys:
+              {{- range .Values.sshKeys }}
+              - {{ . }}
+              {{- end }}
+            chpasswd:
+              expire: false
+      {{- else }}
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          userData: |
+            {{ printf "%s" "#cloud-config" }}
+      {{- end }}
+      networks:
+      - name: default
+        pod: {}

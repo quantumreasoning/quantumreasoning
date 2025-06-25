@@ -1,0 +1,375 @@
+{{- $myNS := lookup "v1" "Namespace" "" .Release.Namespace }}
+{{- $etcd := index $myNS.metadata.annotations "namespace.quantumreasoning.io/etcd" }}
+{{- $ingress := index $myNS.metadata.annotations "namespace.quantumreasoning.io/ingress" }}
+{{- $host := index $myNS.metadata.annotations "namespace.quantumreasoning.io/host" }}
+{{- $kubevirtmachinetemplateNames := list }}
+{{- define "kubevirtmachinetemplate" -}}
+spec:
+  virtualMachineBootstrapCheck:
+    checkStrategy: ssh
+  virtualMachineTemplate:
+    metadata:
+      namespace: {{ $.Release.Namespace }}
+      labels:
+        {{- range .group.roles }}
+        node-role.kubernetes.io/{{ . }}: ""
+        {{- end }}
+    spec:
+      {{- with .group.instanceType }}
+      instancetype:
+        kind: VirtualMachineClusterInstancetype
+        name: {{ . }}
+      {{- end }}
+      runStrategy: Always
+      template:
+        metadata:
+          annotations:
+            kubevirt.io/allow-pod-bridge-network-live-migration: "true"
+          labels:
+            {{- range .group.roles }}
+            node-role.kubernetes.io/{{ . }}: ""
+            {{- end }}
+            cluster.x-k8s.io/deployment-name: {{ $.Release.Name }}-{{ .groupName }}
+        spec:
+          {{- $configMap := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning-scheduling" }}
+          {{- if $configMap }}
+          {{- $rawConstraints := get $configMap.data "globalAppTopologySpreadConstraints" }}
+          {{- if $rawConstraints }}
+          {{- $rawConstraints | fromYaml | toYaml | nindent 10 }}
+            labelSelector:
+              matchLabels:
+                cluster.x-k8s.io/cluster-name: {{ $.Release.Name }}
+          {{- end }}
+          {{- end }}
+          domain:
+            {{- if and .group.resources .group.resources.cpu }}
+            cpu:
+              threads: 1
+              cores: {{ .group.resources.cpu }}
+              sockets: 1
+            {{- end }}
+            devices:
+              {{- if .group.gpus }}
+              gpus:
+              {{- range $i, $gpu := .group.gpus }}
+              - name: gpu{{ add $i 1 }}
+                deviceName: {{ $gpu.name }}
+              {{- end }}
+              {{- end }}
+              disks:
+              - name: system
+                disk:
+                  bus: virtio
+                  pciAddress: 0000:07:00.0
+              - name: ephemeral
+                disk:
+                  bus: virtio
+                  pciAddress: 0000:08:00.0
+              interfaces:
+              - name: default
+                bridge: {}
+            {{- if and .group.resources .group.resources.memory }}
+            memory:
+              guest: {{ .group.resources.memory }}
+            {{- end }}
+          evictionStrategy: External
+          volumes:
+          - name: system
+            containerDisk:
+              image: "{{ $.Files.Get "images/ubuntu-container-disk.tag" | trim }}"
+          - name: ephemeral
+            emptyDisk:
+              capacity: {{ .group.ephemeralStorage | default "20Gi" }}
+          networks:
+          - name: default
+            pod: {}
+{{- end }}
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 10.243.0.0/16
+    services:
+      cidrBlocks:
+      - 10.95.0.0/16
+  controlPlaneRef:
+    namespace: {{ .Release.Namespace }}
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha1
+    kind: KamajiControlPlane
+    name: {{ .Release.Name }}
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    kind: KubevirtCluster
+    name: {{ .Release.Name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha1
+kind: KamajiControlPlane
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    cluster.x-k8s.io/role: control-plane
+  annotations:
+    kamaji.clastix.io/kubeconfig-secret-key: "super-admin.svc"
+spec:
+  apiServer:
+    {{- if .Values.controlPlane.apiServer.resources }}
+    resources: {{- include "quantum-lib.resources.sanitize" (list .Values.controlPlane.apiServer.resources $) | nindent 6 }}
+    {{- else if ne .Values.controlPlane.apiServer.resourcesPreset "none" }}
+    resources: {{- include "quantum-lib.resources.preset" (list .Values.controlPlane.apiServer.resourcesPreset $) | nindent 6 }}
+    {{- end }}
+  controllerManager:
+    {{- if .Values.controlPlane.controllerManager.resources }}
+    resources: {{- include "quantum-lib.resources.sanitize" (list .Values.controlPlane.controllerManager.resources $) | nindent 6 }}
+    {{- else if ne .Values.controlPlane.controllerManager.resourcesPreset "none" }}
+    resources: {{- include "quantum-lib.resources.preset" (list .Values.controlPlane.controllerManager.resourcesPreset $) | nindent 6 }}
+    {{- end }}
+  scheduler:
+    {{- if .Values.controlPlane.scheduler.resources }}
+    resources: {{- include "quantum-lib.resources.sanitize" (list .Values.controlPlane.scheduler.resources $) | nindent 6 }}
+    {{- else if ne .Values.controlPlane.scheduler.resourcesPreset "none" }}
+    resources: {{- include "quantum-lib.resources.preset" (list .Values.controlPlane.scheduler.resourcesPreset $) | nindent 6 }}
+    {{- end }}
+  dataStoreName: "{{ $etcd }}"
+  addons:
+    coreDNS:
+      dnsServiceIPs:
+      - 10.95.0.10
+    konnectivity:
+      server:
+        port: 8132
+        {{- if .Values.controlPlane.konnectivity.server.resources }}
+        resources: {{- include "quantum-lib.resources.sanitize" (list .Values.controlPlane.konnectivity.server.resources $) | nindent 10 }}
+        {{- else if ne .Values.controlPlane.konnectivity.server.resourcesPreset "none" }}
+        resources: {{- include "quantum-lib.resources.preset" (list .Values.controlPlane.konnectivity.server.resourcesPreset $) | nindent 10 }}
+        {{- end }}
+  kubelet:
+    cgroupfs: systemd
+    preferredAddressTypes:
+    - InternalIP
+    - ExternalIP
+  network:
+    serviceType: ClusterIP
+    ingress:
+      extraAnnotations:
+        nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+      hostname: {{ .Values.host | default (printf "%s.%s" .Release.Name $host) }}:443
+      className: "{{ $ingress }}"
+  deployment:
+    podAdditionalMetadata:
+      labels:
+        policy.quantumreasoning.io/allow-to-etcd: "true"
+  replicas: 2
+  version: {{ $.Chart.AppVersion }}
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 2
+  minReplicas: 1
+  kind: kubernetes
+  type: control-plane
+  selector:
+    kamaji.clastix.io/component: deployment
+    kamaji.clastix.io/name: {{ .Release.Name }}
+  version: {{ $.Chart.Version }}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: KubevirtCluster
+metadata:
+  annotations:
+    cluster.x-k8s.io/managed-by: kamaji
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+{{- range $groupName, $group := .Values.nodeGroups }}
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: {{ $.Release.Name }}-{{ $groupName }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  template:
+    spec:
+      diskSetup:
+        filesystems:
+        - device: /dev/vdb
+          filesystem: xfs
+          label: ephemeral
+          partition: "none"
+      mounts:
+      - ["LABEL=ephemeral", "/ephemeral"]
+      - ["/ephemeral/kubelet", "/var/lib/kubelet", "none", "bind,nofail"]
+      - ["/ephemeral/containerd", "/var/lib/containerd", "none", "bind,nofail"]
+      {{- $sec := lookup "v1" "Secret" $.Release.Namespace (printf "%s-patch-containerd" $.Release.Name) }}
+      {{- if $sec }}
+      files:
+        {{- range $key, $_ := $sec.data }}
+        - path: /etc/containerd/certs.d/{{ trimSuffix ".toml" $key }}/hosts.toml
+          contentFrom:
+            secret:
+              name: {{ $.Release.Name }}-patch-containerd
+              key: {{ $key }}
+          permissions: "0400"
+        {{- end }}
+      {{- end }}
+      preKubeadmCommands:
+      - sed -i 's|root:x:|root::|' /etc/passwd
+      - systemctl stop containerd.service
+      - mkdir -p /ephemeral/kubelet /ephemeral/containerd
+      - mount -o bind /ephemeral/kubelet /var/lib/kubelet
+      - mount -o bind /ephemeral/containerd /var/lib/containerd
+      - sudo sed -i '/\[plugins."io.containerd.grpc.v1.cri".registry\]/,/^\[/ s|^\(\s*config_path\s*=\s*\).*|\1"/etc/containerd/certs.d"|' /etc/containerd/config.toml
+      - systemctl start containerd.service
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs: {}
+        discovery:
+          bootstrapToken:
+            apiServerEndpoint: {{ $.Release.Name }}.{{ $.Release.Namespace }}.svc:6443
+      initConfiguration:
+        skipPhases:
+        - addon/kube-proxy
+---
+{{- $context := deepCopy $ }}
+{{- $_ := set $context "group" $group }}
+{{- $_ := set $context "groupName" $groupName }}
+{{- $kubevirtmachinetemplate := include "kubevirtmachinetemplate" $context }}
+{{- $kubevirtmachinetemplateHash := $kubevirtmachinetemplate | sha256sum | trunc 6 }}
+{{- $kubevirtmachinetemplateName := printf "%s-%s-%s" $.Release.Name $groupName $kubevirtmachinetemplateHash }}
+{{- $kubevirtmachinetemplateNames = append $kubevirtmachinetemplateNames $kubevirtmachinetemplateName }}
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: KubevirtMachineTemplate
+metadata:
+  name: {{ $.Release.Name }}-{{ $groupName }}-{{ $kubevirtmachinetemplateHash }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  template:
+    {{- $kubevirtmachinetemplate | nindent 4 }}
+---
+{{- $instanceType := dict }}
+{{- if $group.instanceType }}
+{{-   $instanceType = (lookup "instancetype.kubevirt.io/v1beta1" "VirtualMachineClusterInstancetype" "" $group.instanceType) }}
+{{-   if not $instanceType }}
+{{-     fail (printf "Specified instancetype not exists in cluster: %s" $group.instanceType) }}
+{{-   end }}
+{{- end }}
+
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: {{ $.Release.Name }}-{{ $groupName }}
+  namespace: {{ $.Release.Namespace }}
+  annotations:
+    cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size: "{{ $group.minReplicas }}"
+    cluster.x-k8s.io/cluster-api-autoscaler-node-group-max-size: "{{ $group.maxReplicas }}"
+    {{- if and $group.resources $group.resources.memory }}
+    capacity.cluster-autoscaler.kubernetes.io/memory: "{{ $group.resources.memory }}"
+    {{- else }}
+    capacity.cluster-autoscaler.kubernetes.io/memory: "{{ $instanceType.spec.memory.guest }}"
+    {{- end }}
+    {{- if and $group.resources $group.resources.cpu }}
+    capacity.cluster-autoscaler.kubernetes.io/cpu: "{{ $group.resources.cpu }}"
+    {{- else }}
+    capacity.cluster-autoscaler.kubernetes.io/cpu: "{{ $instanceType.spec.cpu.guest }}"
+    {{- end }}
+spec:
+  clusterName: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        cluster.x-k8s.io/cluster-name: {{ $.Release.Name }}
+        cluster.x-k8s.io/deployment-name: {{ $.Release.Name }}-{{ $groupName }}
+        {{- range $group.roles }}
+        node-role.kubernetes.io/{{ . }}: ""
+        {{- end }}
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+          name: {{ $.Release.Name }}-{{ $groupName }}
+          namespace: {{ $.Release.Namespace }}
+      clusterName: {{ $.Release.Name }}
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+        kind: KubevirtMachineTemplate
+        name: {{ $.Release.Name }}-{{ $groupName }}-{{ $kubevirtmachinetemplateHash }}
+        namespace: {{ $.Release.Namespace }}
+      version: v{{ $.Chart.AppVersion }}
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: {{ $.Release.Name }}-{{ $groupName }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  clusterName: {{ $.Release.Name }}
+  nodeStartupTimeout: 10m
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/cluster-name: {{ $.Release.Name }}
+      cluster.x-k8s.io/deployment-name: {{ $.Release.Name }}-{{ $groupName }}
+  unhealthyConditions:
+  - type: Ready
+    status: Unknown
+    timeout: 30s
+  - type: Ready
+    status: "False"
+    timeout: 300s
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ $.Release.Name }}-{{ $groupName }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  minReplicas: {{ $group.minReplicas }}
+  kind: kubernetes
+  type: worker
+  selector:
+    cluster.x-k8s.io/cluster-name: {{ $.Release.Name }}
+    cluster.x-k8s.io/deployment-name: {{ $.Release.Name }}-{{ $groupName }}
+    cluster.x-k8s.io/role: worker
+  version: {{ $.Chart.Version }}
+{{- end }}
+---
+{{- /*
+We must preserve all previous KubevirtMachineTemplates until a MachineSet references them.
+*/ -}}
+{{- $mss := (lookup "cluster.x-k8s.io/v1beta1" "MachineSet" $.Release.Namespace "").items }}
+{{- $oldKubevirtmachinetemplates := dict }}
+{{- range $kmt := (lookup "infrastructure.cluster.x-k8s.io/v1alpha1" "KubevirtMachineTemplate" .Release.Namespace "").items }}
+{{- range $or := $kmt.metadata.ownerReferences }}
+{{- if and (eq $or.kind "Cluster") (eq $or.name $.Release.Name) }}
+{{- range $ms := $mss }}
+{{- if and (eq $ms.spec.template.spec.infrastructureRef.kind "KubevirtMachineTemplate") (eq $ms.spec.template.spec.infrastructureRef.name $kmt.metadata.name) }}
+{{- if not (has $kmt.metadata.name $kubevirtmachinetemplateNames) }}
+{{- $oldKubevirtmachinetemplates = merge $oldKubevirtmachinetemplates (dict $kmt.metadata.name $kmt) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- range $oldKubevirtmachinetemplates }}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: KubevirtMachineTemplate
+metadata:
+  name: {{ .metadata.name }}
+  namespace: {{ .metadata.Namespace }}
+spec:
+  {{- .spec | toYaml | nindent 2 }}
+{{- end }}

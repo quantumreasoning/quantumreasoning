@@ -1,0 +1,22 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: CDI
+metadata:
+  name: cdi
+spec:
+  config:
+    {{- with .Values.uploadProxyURL }}
+    uploadProxyURLOverride: {{ quote . }}
+    {{- end }}
+    featureGates:
+    - HonorWaitForFirstConsumer
+    - ExpandDisks
+  imagePullPolicy: IfNotPresent
+  infra:
+    nodeSelector:
+      kubernetes.io/os: linux
+    tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+  workload:
+    nodeSelector:
+      kubernetes.io/os: linux

@@ -1,0 +1,23 @@
+## @section Common parameters
+
+## @param host The hostname used to access tenant services (defaults to using the tenant name as a subdomain for it's parent tenant host).
+## @param etcd Deploy own Etcd cluster
+## @param monitoring Deploy own Monitoring Stack
+## @param ingress Deploy own Ingress Controller
+## @param seaweedfs Deploy own SeaweedFS
+## @param isolated Enforce tenant namespace with network policies
+## @param resourceQuotas Define resource quotas for the tenant
+host: ""
+etcd: false
+monitoring: false
+ingress: false
+seaweedfs: false
+isolated: true
+resourceQuotas: {}
+# resourceQuotas:
+#   requests.cpu: "1"
+#   requests.memory: "1Gi"
+#   limits.cpu: "2"
+#   limits.memory: "2Gi"
+#   requests.nvidia.com/gpu: 4
+#   requests.storage: 100Gi

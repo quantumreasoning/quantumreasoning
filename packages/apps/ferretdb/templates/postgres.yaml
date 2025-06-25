@@ -1,0 +1,66 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}-postgres
+spec:
+  instances: {{ .Values.replicas }}
+  enableSuperuserAccess: true
+  {{- $configMap := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning-scheduling" }}
+  {{- if $configMap }}
+  {{- $rawConstraints := get $configMap.data "globalAppTopologySpreadConstraints" }}
+  {{- if $rawConstraints }}
+  {{- $rawConstraints | fromYaml | toYaml | nindent 2 }}
+    labelSelector:
+      matchLabels:
+        cnpg.io/cluster: {{ .Release.Name }}-postgres
+  {{- end }}
+  {{- end }}
+  minSyncReplicas: {{ .Values.quorum.minSyncReplicas }}
+  maxSyncReplicas: {{ .Values.quorum.maxSyncReplicas }}
+  {{- if .Values.resources }}
+  resources: {{- include "quantum-lib.resources.sanitize" (list .Values.resources $) | nindent 4 }}
+  {{- else if ne .Values.resourcesPreset "none" }}
+  resources: {{- include "quantum-lib.resources.preset" (list .Values.resourcesPreset $) | nindent 4 }}
+  {{- end }}
+  monitoring:
+    enablePodMonitor: true
+
+  storage:
+    size: {{ required ".Values.size is required" .Values.size }}
+    {{- with .Values.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+
+  inheritedMetadata:
+    labels:
+      policy.quantumreasoning.io/allow-to-apiserver: "true"
+      app.kubernetes.io/instance: {{ .Release.Name }}
+
+  {{- if .Values.users }}
+  managed:
+    roles:
+    {{- range $user, $config := .Values.users }}
+    - name: {{ $user }}
+      ensure: present
+      passwordSecret:
+        name: {{ printf "%s-user-%s" $.Release.Name $user }}
+      login: true
+      inRoles:
+      - app
+    {{- end }}
+  {{- end }}
+
+{{- range $user, $config := .Values.users }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ printf "%s-user-%s" $.Release.Name $user }}
+  labels:
+    cnpg.io/reload: "true"
+type: kubernetes.io/basic-auth
+data:
+  username: {{ $user | b64enc }}
+  password: {{ $config.password | b64enc }}
+{{- end }}

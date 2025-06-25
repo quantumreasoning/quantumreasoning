@@ -1,0 +1,44 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: grafana-db
+spec:
+  instances: 2
+  storage:
+    size: {{ .Values.grafana.db.size }}
+  {{- $configMap := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning-scheduling" }}
+  {{- if $configMap }}
+  {{- $rawConstraints := get $configMap.data "globalAppTopologySpreadConstraints" }}
+  {{- if $rawConstraints }}
+  {{- $rawConstraints | fromYaml | toYaml | nindent 2 }}
+    labelSelector:
+      matchLabels:
+        cnpg.io/cluster: grafana-db
+  {{- end }}
+  {{- end }}
+  monitoring:
+    enablePodMonitor: true
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2048Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  inheritedMetadata:
+    labels:
+      policy.quantumreasoning.io/allow-to-apiserver: "true"
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: grafana-db
+spec:
+  replicas: 2
+  minReplicas: 1
+  kind: monitoring
+  type: postgres
+  selector:
+    cnpg.io/cluster: grafana-db
+    cnpg.io/podRole: instance
+  version: {{ $.Chart.Version }}

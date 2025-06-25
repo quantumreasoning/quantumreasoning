@@ -1,0 +1,232 @@
+{{- $quantumConfig := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning" }}
+{{- $clusterDomain := (index $quantumConfig.data "cluster-domain") | default "quantum.local" }}
+{{- $oidcEnabled := index $quantumConfig.data "oidc-enabled" }}
+{{- $host := index $quantumConfig.data "root-host" }}
+{{- if not $host }}
+{{- fail "ERROR need root-host in quantumreasoning ConfigMap" }}
+{{- end }}
+{{- $apiServerEndpoint := index $quantumConfig.data "api-server-endpoint" }}
+{{- if not $apiServerEndpoint }}
+{{- fail "ERROR need api-server-endpoint in quantumreasoning ConfigMap" }}
+{{- end }}
+
+releases:
+- name: fluxcd-operator
+  releaseName: fluxcd-operator
+  chart: quantum-fluxcd-operator
+  namespace: quantum-fluxcd
+  privileged: true
+  dependsOn: []
+
+- name: fluxcd
+  releaseName: fluxcd
+  chart: quantum-fluxcd
+  namespace: quantum-fluxcd
+  dependsOn: [fluxcd-operator]
+  values:
+    flux-instance:
+      instance:
+        cluster:
+          domain: {{ $clusterDomain }}
+
+- name: cert-manager-crds
+  releaseName: cert-manager-crds
+  chart: quantum-cert-manager-crds
+  namespace: quantum-cert-manager
+  dependsOn: []
+
+- name: quantumreasoning-api
+  releaseName: quantumreasoning-api
+  chart: quantum-quantumreasoning-api
+  namespace: quantum-system
+  dependsOn: []
+
+- name: quantumreasoning-controller
+  releaseName: quantumreasoning-controller
+  chart: quantum-quantumreasoning-controller
+  namespace: quantum-system
+  dependsOn: []
+  {{- if eq (index $quantumConfig.data "telemetry-enabled") "false" }}
+  values:
+    quantumreasoningController:
+      disableTelemetry: true
+  {{- end }}
+
+- name: cert-manager
+  releaseName: cert-manager
+  chart: quantum-cert-manager
+  namespace: quantum-cert-manager
+  dependsOn: [cert-manager-crds]
+
+- name: cert-manager-issuers
+  releaseName: cert-manager-issuers
+  chart: quantum-cert-manager-issuers
+  namespace: quantum-cert-manager
+  dependsOn: [cert-manager]
+
+- name: victoria-metrics-operator
+  releaseName: victoria-metrics-operator
+  chart: quantum-victoria-metrics-operator
+  namespace: quantum-victoria-metrics-operator
+  dependsOn: [cert-manager]
+
+- name: monitoring-agents
+  releaseName: monitoring-agents
+  chart: quantum-monitoring-agents
+  namespace: quantum-monitoring
+  privileged: true
+  dependsOn: [victoria-metrics-operator, vertical-pod-autoscaler-crds]
+  values:
+    scrapeRules:
+      etcd:
+        enabled: true
+
+- name: etcd-operator
+  releaseName: etcd-operator
+  chart: quantum-etcd-operator
+  namespace: quantum-etcd-operator
+  dependsOn: [cert-manager]
+
+- name: grafana-operator
+  releaseName: grafana-operator
+  chart: quantum-grafana-operator
+  namespace: quantum-grafana-operator
+  dependsOn: []
+
+- name: mariadb-operator
+  releaseName: mariadb-operator
+  chart: quantum-mariadb-operator
+  namespace: quantum-mariadb-operator
+  dependsOn: [cert-manager,victoria-metrics-operator]
+  values:
+    mariadb-operator:
+      clusterName: {{ $clusterDomain }}
+
+- name: postgres-operator
+  releaseName: postgres-operator
+  chart: quantum-postgres-operator
+  namespace: quantum-postgres-operator
+  dependsOn: [cert-manager,victoria-metrics-operator]
+
+- name: kafka-operator
+  releaseName: kafka-operator
+  chart: quantum-kafka-operator
+  namespace: quantum-kafka-operator
+  dependsOn: [victoria-metrics-operator]
+  values:
+    strimzi-kafka-operator:
+      kubernetesServiceDnsDomain: {{ $clusterDomain }}
+
+- name: clickhouse-operator
+  releaseName: clickhouse-operator
+  chart: quantum-clickhouse-operator
+  namespace: quantum-clickhouse-operator
+  dependsOn: [victoria-metrics-operator]
+
+- name: rabbitmq-operator
+  releaseName: rabbitmq-operator
+  chart: quantum-rabbitmq-operator
+  namespace: quantum-rabbitmq-operator
+  dependsOn: []
+
+- name: redis-operator
+  releaseName: redis-operator
+  chart: quantum-redis-operator
+  namespace: quantum-redis-operator
+  dependsOn: []
+
+- name: piraeus-operator
+  releaseName: piraeus-operator
+  chart: quantum-piraeus-operator
+  namespace: quantum-linstor
+  dependsOn: [cert-manager]
+
+- name: objectstorage-controller
+  releaseName: objectstorage-controller
+  chart: quantum-objectstorage-controller
+  namespace: quantum-objectstorage-controller
+  dependsOn: []
+
+- name: telepresence
+  releaseName: traffic-manager
+  chart: quantum-telepresence
+  namespace: quantum-telepresence
+  optional: true
+  dependsOn: []
+
+- name: external-dns
+  releaseName: external-dns
+  chart: quantum-external-dns
+  namespace: quantum-external-dns
+  optional: true
+  dependsOn: []
+
+- name: external-secrets-operator
+  releaseName: external-secrets-operator
+  chart: quantum-external-secrets-operator
+  namespace: quantum-external-secrets-operator
+  optional: true
+  dependsOn: []
+
+- name: dashboard
+  releaseName: dashboard
+  chart: quantum-dashboard
+  namespace: quantum-dashboard
+  values:
+    {{- $dashboardKCconfig := lookup "v1" "ConfigMap" "quantum-dashboard" "kubeapps-auth-config" }}
+    {{- $dashboardKCValues := dig "data" "values.yaml" (dict) $dashboardKCconfig }}
+    {{- toYaml (deepCopy $dashboardKCValues | mergeOverwrite (fromYaml (include "quantumreasoning.defaultDashboardValues" .))) | nindent 4 }}
+  {{- if eq $oidcEnabled "true" }}
+  dependsOn: [keycloak-configure]
+  {{- else }}
+  dependsOn: []
+  {{- end }}
+
+{{- if $oidcEnabled }}
+- name: keycloak
+  releaseName: keycloak
+  chart: quantum-keycloak
+  namespace: quantum-keycloak
+  dependsOn: [postgres-operator]
+
+- name: keycloak-operator
+  releaseName: keycloak-operator
+  chart: quantum-keycloak-operator
+  namespace: quantum-keycloak
+  dependsOn: [keycloak]
+
+- name: keycloak-configure
+  releaseName: keycloak-configure
+  chart: quantum-keycloak-configure
+  namespace: quantum-keycloak
+  dependsOn: [keycloak-operator]
+  values:
+    quantumreasoning:
+      configHash: {{ $quantumConfig | toJson | sha256sum }}
+{{- end }}
+
+- name: goldpinger
+  releaseName: goldpinger
+  chart: quantum-goldpinger
+  namespace: quantum-goldpinger
+  privileged: true
+  dependsOn: [monitoring-agents]
+
+- name: vertical-pod-autoscaler
+  releaseName: vertical-pod-autoscaler
+  chart: quantum-vertical-pod-autoscaler
+  namespace: quantum-vertical-pod-autoscaler
+  privileged: true
+  dependsOn: [monitoring-agents]
+  values:
+    vertical-pod-autoscaler:
+      recommender:
+        extraArgs:
+          prometheus-address: http://vmselect-shortterm.tenant-root.svc.{{ $clusterDomain }}:8481/select/0/prometheus/
+
+- name: vertical-pod-autoscaler-crds
+  releaseName: vertical-pod-autoscaler-crds
+  chart: quantum-vertical-pod-autoscaler-crds
+  namespace: quantum-vertical-pod-autoscaler
+  privileged: true
+  dependsOn: []

@@ -1,0 +1,34 @@
+{{- define "monitoring-agents.vmagent.defaultExtraArgs" }}
+promscrape.streamParse: "true"
+promscrape.maxScrapeSize: 32MB
+{{- end }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: vmagent
+spec:
+  shardCount: 1
+  externalLabels:
+    cluster: {{ .Values.vmagent.externalLabels.cluster }}
+    tenant: {{ .Values.vmagent.externalLabels.tenant }}
+  extraArgs:
+    {{- toYaml (deepCopy .Values.vmagent.extraArgs | mergeOverwrite (fromYaml (include "monitoring-agents.vmagent.defaultExtraArgs" .))) | nindent 4 }}
+  remoteWrite:
+  {{- range .Values.vmagent.remoteWrite.urls }}
+  - url: {{ . | quote }}
+  {{- end }}
+
+  scrapeInterval: 30s
+  selectAllByDefault: true
+  additionalScrapeConfigs:
+    name: additional-scrape-configs
+    key: prometheus-additional.yaml
+  resources: {}
+  configReloaderResources: {}
+  #statefulMode: true
+  #statefulStorage:
+  #  volumeClaimTemplate:
+  #    spec:
+  #      resources:
+  #          requests:
+  #            storage: 20Gi

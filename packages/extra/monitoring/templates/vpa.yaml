@@ -1,0 +1,89 @@
+{{- range .Values.metricsStorages }}
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: vpa-vminsert-{{ .name }}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vminsert-{{ .name }}
+  updatePolicy:
+    updateMode: Auto
+  resourcePolicy:
+    containerPolicies:
+      - containerName: vminsert
+        minAllowed:
+          {{- if and .vminsert .vminsert.minAllowed }}
+          {{- toYaml .vminsert.minAllowed | nindent 10 }}
+          {{- else }}
+          cpu: 25m
+          memory: 64Mi
+          {{- end }}
+        maxAllowed:
+          {{- if and .vminsert .vminsert.maxAllowed }}
+          {{- toYaml .vminsert.maxAllowed | nindent 10 }}
+          {{- else }}
+          cpu: 2000m
+          memory: 4Gi
+          {{- end }}
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: vpa-vmselect-{{ .name }}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: vmselect-{{ .name }}
+  updatePolicy:
+    updateMode: Auto
+  resourcePolicy:
+    containerPolicies:
+      - containerName: vmselect
+        minAllowed:
+          {{- if and .vmselect .vmselect.minAllowed }}
+          {{- toYaml .vmselect.minAllowed | nindent 10 }}
+          {{- else }}
+          cpu: 25m
+          memory: 64Mi
+          {{- end }}
+        maxAllowed:
+          {{- if and .vmselect .vmselect.maxAllowed }}
+          {{- toYaml .vmselect.maxAllowed | nindent 10 }}
+          {{- else }}
+          cpu: 4000m
+          memory: 8Gi
+          {{- end }}
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: vpa-vmstorage-{{ .name }}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: vmstorage-{{ .name }}
+  updatePolicy:
+    updateMode: Auto
+  resourcePolicy:
+    containerPolicies:
+      - containerName: vmstorage
+        minAllowed:
+          {{- if and .vmstorage .vmstorage.minAllowed }}
+          {{- toYaml .vmstorage.minAllowed | nindent 10 }}
+          {{- else }}
+          cpu: 25m
+          memory: 64Mi
+          {{- end }}
+        maxAllowed:
+          {{- if and .vmstorage .vmstorage.maxAllowed }}
+          {{- toYaml .vmstorage.maxAllowed | nindent 10 }}
+          {{- else }}
+          cpu: 4000m
+          memory: 8Gi
+          {{- end }}
+{{- end }}

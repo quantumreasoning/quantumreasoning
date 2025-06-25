@@ -1,0 +1,3 @@
+portSecurity: true
+routes: ""
+image: ghcr.io/quantumreasoning/quantumreasoning/kubeovn-webhook:v0.32.1@sha256:5034a2e6c3c7b414653dafb5283047570db2cc17a375a7fe12255f831b2f83b1

@@ -1,0 +1,1 @@
+ghcr.io/quantumreasoning/quantumreasoning/nginx-cache:0.5.2@sha256:e0a07082bb6fc6aeaae2315f335386f1705a646c72f9e0af512aebbca5cb2b15

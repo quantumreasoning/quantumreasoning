@@ -1,0 +1,76 @@
+apiVersion: piraeus.io/v1
+kind: LinstorCluster
+metadata:
+  name: linstorcluster
+spec:
+  #nodeSelector:
+  #  node-role.kubernetes.io/linstor: ""
+  internalTLS:
+    certManager:
+      name: linstor-internal-ca
+      kind: Issuer
+  apiTLS:
+    certManager:
+      name: linstor-api-ca
+      kind: Issuer
+  properties:
+  - name: DrbdOptions/Net/connect-int
+    value: "15"
+  - name: DrbdOptions/Net/ping-int
+    value: "15"
+  - name: DrbdOptions/Net/ping-timeout
+    value: "20"
+  - name: DrbdOptions/Net/timeout
+    value: "100"
+  controller:
+    enabled: true
+    podTemplate:
+      spec:
+        containers:
+        - name: plunger
+          image: {{ include "quantum.linstor.version.controller" . }}
+          command:
+          - "/scripts/plunger-controller.sh"
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            # make some room for live debugging
+            readOnlyRootFilesystem: false
+          volumeMounts:
+          - mountPath: /etc/linstor/client
+            name: client-tls
+            readOnly: true
+          - mountPath: /etc/linstor
+            name: etc-linstor
+            readOnly: true
+          - mountPath: /scripts
+            name: script-volume
+            readOnly: true
+        volumes:
+        - name: script-volume
+          configMap:
+            name: linstor-plunger
+            defaultMode: 0755
+  patches:
+    - target:
+        kind: Deployment
+        name: linstor-controller
+      patch: |-
+        - op: add
+          path: /metadata/annotations/reloader.stakater.com~1auto
+          value: "true"
+    - target:
+        kind: Deployment
+        name: linstor-csi-controller
+      patch: |-
+        - op: add
+          path: /metadata/annotations/reloader.stakater.com~1auto
+          value: "true"
+    - target:
+        kind: DaemonSet
+        name: linstor-csi-node
+      patch: |-
+        - op: add
+          path: /metadata/annotations/reloader.stakater.com~1auto
+          value: "true"

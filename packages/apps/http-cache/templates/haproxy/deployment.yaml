@@ -1,0 +1,50 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-haproxy
+  labels:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.haproxy.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-haproxy
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-haproxy
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/haproxy/configmap.yaml") . | sha256sum }}
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}-haproxy
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - image: haproxy:latest
+        name: haproxy
+        {{- if .Values.haproxy.resources }}
+        resources: {{- include "quantum-lib.resources.sanitize" (list .Values.haproxy.resources $) | nindent 10 }}
+        {{- else if ne .Values.haproxy.resourcesPreset "none" }}
+        resources: {{- include "quantum-lib.resources.preset" (list .Values.haproxy.resourcesPreset $) | nindent 10 }}
+        {{- end }}
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - mountPath: /usr/local/etc/haproxy
+          name: config
+      volumes:
+      - configMap:
+          name: {{ .Release.Name }}-haproxy
+        name: config

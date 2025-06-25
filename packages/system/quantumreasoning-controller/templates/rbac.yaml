@@ -1,0 +1,17 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: quantumreasoning-controller
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "pods", "namespaces", "nodes", "services", "persistentvolumes", "persistentvolumeclaims"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ['quantumreasoning.io']
+  resources: ['*']
+  verbs: ['*']
+- apiGroups: ["helm.toolkit.fluxcd.io"]
+  resources: ["helmreleases"]
+  verbs: ["get", "list", "watch", "patch", "update"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch", "patch", "update"]

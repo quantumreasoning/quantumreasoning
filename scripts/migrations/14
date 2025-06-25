@@ -1,0 +1,10 @@
+#!/bin/sh
+# Migration 14 --> 15
+
+# Delete the `capi-providers` HelmRelease in the `quantum-cluster-api` namespace if present
+if kubectl get hr -n quantum-cluster-api capi-providers >/dev/null 2>&1; then
+  kubectl delete hr -n quantum-cluster-api capi-providers
+fi
+
+# Write version to quantumreasoning-version config
+kubectl create configmap -n quantum-system quantumreasoning-version --from-literal=version=15 --dry-run=client -o yaml | kubectl apply -f-

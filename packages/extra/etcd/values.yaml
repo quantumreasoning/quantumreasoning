@@ -1,0 +1,18 @@
+## @section Common parameters
+
+## @param size Persistent Volume size
+## @param storageClass StorageClass used to store the data
+## @param replicas Number of etcd replicas
+##
+size: 4Gi
+storageClass: ""
+replicas: 3
+
+## @param resources Resources
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 512Mi

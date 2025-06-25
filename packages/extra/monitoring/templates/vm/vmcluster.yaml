@@ -1,0 +1,92 @@
+{{- range .Values.metricsStorages }}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMCluster
+metadata:
+  name: {{ .name }}
+spec:
+  replicationFactor: 2
+  retentionPeriod: {{ .retentionPeriod | quote }}
+  vminsert:
+    extraArgs:
+      # kubevirt and other systems produce a lot of labels
+      # it's usually more than default 30
+      maxLabelsPerTimeseries: "60"
+    replicaCount: 2
+    resources: {}
+  vmselect:
+    replicaCount: 2
+    resources: {}
+    extraArgs:
+      search.maxUniqueTimeseries: "600000"
+      vmalert.proxyURL: http://vmalert-{{ .name }}.{{ $.Release.Namespace }}.svc:8080
+      dedup.minScrapeInterval: {{ .deduplicationInterval | quote}}
+    cacheMountPath: /select-cache
+    storage:
+      volumeClaimTemplate:
+        spec:
+          {{- with .storageClassName }}
+          storageClassName: {{ . }}
+          {{- end }}
+          resources:
+            requests:
+              storage: 2Gi
+  vmstorage:
+    replicaCount: 2
+    resources: {}
+    storage:
+      volumeClaimTemplate:
+        spec:
+          {{- with .storageClassName }}
+          storageClassName: {{ . }}
+          {{- end }}
+          resources:
+            requests:
+              storage: {{ .storage }}
+    storageDataPath: /vm-data
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ .name }}-vmstorage
+spec:
+  replicas: 2
+  minReplicas: 1
+  kind: monitoring
+  type: vmstorage
+  selector:
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/instance: {{ .name }}
+    app.kubernetes.io/name: vmstorage
+  version: {{ $.Chart.Version }}
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ .name }}-vmselect
+spec:
+  replicas: 2
+  minReplicas: 1
+  kind: monitoring
+  type: vmselect
+  selector:
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/instance: {{ .name }}
+    app.kubernetes.io/name: vmselect
+  version: {{ $.Chart.Version }}
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ .name }}-vminsert
+spec:
+  replicas: 2
+  minReplicas: 1
+  kind: monitoring
+  type: vminsert
+  selector:
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/instance: {{ .name }}
+    app.kubernetes.io/name: vminsert
+  version: {{ $.Chart.Version }}
+{{- end }}

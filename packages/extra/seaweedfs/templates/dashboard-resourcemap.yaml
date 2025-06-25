@@ -1,0 +1,40 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-dashboard-resources
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  resourceNames:
+  - {{ $.Release.Name }}-s3
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  resourceNames:
+  - ingress-{{ $.Release.Name }}-s3
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - quantumreasoning.io
+  resources:
+  - workloadmonitors
+  resourceNames:
+  - {{ $.Release.Name }}-master
+  - {{ $.Release.Name }}-filer
+  - {{ $.Release.Name }}-volume
+  - {{ $.Release.Name }}-db
+  verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}-dashboard-resources
+subjects:
+{{ include "quantum-lib.rbac.subjectsForTenantAndAccessLevel" (list "admin" .Release.Namespace) }}
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-dashboard-resources
+  apiGroup: rbac.authorization.k8s.io

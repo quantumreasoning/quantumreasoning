@@ -1,0 +1,140 @@
+## @section Common Parameters
+
+## @param host Hostname used to access the Kubernetes cluster externally. Defaults to `<cluster-name>.<tenant-host>` when empty.
+## @param controlPlane.replicas Number of replicas for Kubernetes control-plane components.
+## @param storageClass StorageClass used to store user data.
+##
+host: ""
+storageClass: replicated
+
+## @param nodeGroups [object] nodeGroups configuration
+##
+nodeGroups:
+  md0:
+    minReplicas: 0
+    maxReplicas: 10
+    instanceType: "u1.medium"
+    ephemeralStorage: 20Gi
+    roles:
+    - ingress-nginx
+
+    resources:
+      cpu: ""
+      memory: ""
+
+    ## List of GPUs to attach (WARN: NVIDIA driver requires at least 4 GiB of RAM)
+    ## e.g:
+    ## instanceType: "u1.xlarge"
+    ## gpus:
+    ## - name: nvidia.com/AD102GL_L40S
+    gpus: []
+
+
+## @section Cluster Addons
+##
+addons:
+
+  ## Cert-manager: automatically creates and manages SSL/TLS certificate
+  ##
+  certManager:
+    ## @param addons.certManager.enabled Enable cert-manager, which automatically creates and manages SSL/TLS certificates.
+    ## @param addons.certManager.valuesOverride Custom values to override
+    enabled: false
+    valuesOverride: {}
+
+  ## Cilium CNI plugin
+  ##
+  cilium:
+    ## @param addons.cilium.valuesOverride Custom values to override
+    valuesOverride: {}
+
+  ## Gateway API
+  ##
+  gatewayAPI:
+    ## @param addons.gatewayAPI.enabled Enable the Gateway API
+    enabled: false
+
+  ## Ingress-NGINX Controller
+  ##
+  ingressNginx:
+    ## @param addons.ingressNginx.enabled Enable the Ingress-NGINX controller (requires nodes labeled with the 'ingress-nginx' role).
+    ## @param addons.ingressNginx.valuesOverride Custom values to override
+    ##
+    enabled: false
+    ## @param addons.ingressNginx.hosts List of domain names that the parent cluster should route to this tenant cluster.
+    ## e.g:
+    ## hosts:
+    ## - example.org
+    ## - foo.example.net
+    ##
+    hosts: []
+    valuesOverride: {}
+
+  ## GPU-operator: NVIDIA GPU Operator
+  ##
+  gpuOperator:
+    ## @param addons.gpuOperator.enabled Enable the GPU-operator
+    ## @param addons.gpuOperator.valuesOverride Custom values to override
+    enabled: false
+    valuesOverride: {}
+
+  ## Flux CD
+  ##
+  fluxcd:
+    ## @param addons.fluxcd.enabled Enable FluxCD
+    ## @param addons.fluxcd.valuesOverride Custom values to override
+    ##
+    enabled: false
+    valuesOverride: {}
+
+  ## MonitoringAgents
+  ##
+  monitoringAgents:
+    ## @param addons.monitoringAgents.enabled Enable monitoring agents (Fluent Bit and VMAgents) to send logs and metrics. If tenant monitoring is enabled, data is sent to tenant storage; otherwise, it goes to root storage.
+    ## @param addons.monitoringAgents.valuesOverride Custom values to override
+    ##
+    enabled: false
+    valuesOverride: {}
+
+  ## VerticalPodAutoscaler
+  ##
+  verticalPodAutoscaler:
+    ## @param addons.verticalPodAutoscaler.valuesOverride Custom values to override
+    ##
+    valuesOverride: {}
+
+## @section Kubernetes Control Plane Configuration
+##
+
+controlPlane:
+  replicas: 2
+
+  apiServer:
+    ## @param controlPlane.apiServer.resources Explicit CPU/memory resource requests and limits for the API server.
+    ## @param controlPlane.apiServer.resourcesPreset Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)
+    ## e.g:
+    ## resources:
+    ##   cpu: 4000m
+    ##   memory: 4Gi
+    ##
+    resourcesPreset: "medium"
+    resources: {}
+
+  controllerManager:
+    ## @param controlPlane.controllerManager.resources Explicit CPU/memory resource requests and limits for the controller manager.
+    ## @param controlPlane.controllerManager.resourcesPreset Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)
+    resourcesPreset: "micro"
+    resources: {}
+
+  scheduler:
+    ## @param controlPlane.scheduler.resources Explicit CPU/memory resource requests and limits for the scheduler.
+    ## @param controlPlane.scheduler.resourcesPreset Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)
+    resourcesPreset: "micro"
+    resources: {}
+
+  konnectivity:
+    server:
+      ## @param controlPlane.konnectivity.server.resources Explicit CPU/memory resource requests and limits for the Konnectivity.
+      ## @param controlPlane.konnectivity.server.resourcesPreset Use a common resources preset when `resources` is not set explicitly. (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge)
+      resourcesPreset: "micro"
+      resources: {}

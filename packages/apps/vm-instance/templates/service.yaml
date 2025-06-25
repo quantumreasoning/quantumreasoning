@@ -1,0 +1,29 @@
+{{- if .Values.external }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "virtual-machine.fullname" . }}
+  labels:
+    {{- include "virtual-machine.labels" . | nindent 4 }}
+  {{- if eq .Values.externalMethod "WholeIP" }}
+  annotations:
+    networking.quantumreasoning.io/wholeIP: "true"
+  {{- end }}
+spec:
+  type: {{ ternary "LoadBalancer" "ClusterIP" .Values.external }}
+  externalTrafficPolicy: Local
+  allocateLoadBalancerNodePorts: false
+  selector:
+    {{- include "virtual-machine.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- if and (eq .Values.externalMethod "WholeIP") (not .Values.externalPorts) }}
+    - port: 65535
+    {{- else }}
+    {{- range .Values.externalPorts }}
+    - name: port-{{ . }}
+      port: {{ . }}
+      targetPort: {{ . }}
+    {{- end }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,28 @@
+{{- $quantumConfig := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning" }}
+{{- $host := index $quantumConfig.data "root-host" }}
+{{- $exposeServices := splitList "," ((index $quantumConfig.data "expose-services") | default "") }}
+{{- $exposeIngress := index $quantumConfig.data "expose-ingress" | default "tenant-root" }}
+
+{{- if and (has "api" $exposeServices) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+  name: kubernetes
+  namespace: default
+spec:
+  ingressClassName: {{ $exposeIngress }}
+  rules:
+  - host: api.{{ $host }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: kubernetes
+            port:
+              number: 443
+        path: /
+        pathType: Prefix
+{{- end }}

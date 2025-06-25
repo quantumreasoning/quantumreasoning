@@ -1,0 +1,50 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: alerta-db
+spec:
+  instances: 2
+  {{- $configMap := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning-scheduling" }}
+  {{- if $configMap }}
+  {{- $rawConstraints := get $configMap.data "globalAppTopologySpreadConstraints" }}
+  {{- if $rawConstraints }}
+  {{- $rawConstraints | fromYaml | toYaml | nindent 2 }}
+    labelSelector:
+      matchLabels:
+        cnpg.io/cluster: alerta-db
+  {{- end }}
+  {{- end }}
+  storage:
+    size: {{ required ".Values.alerta.storage is required" .Values.alerta.storage }}
+    {{- with .Values.alerta.storageClassName }}
+    storageClass: {{ . }}
+    {{- end }}
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2048Mi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+  monitoring:
+    enablePodMonitor: true
+
+  inheritedMetadata:
+    labels:
+      policy.quantumreasoning.io/allow-to-apiserver: "true"
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: alerta-db
+spec:
+  replicas: 2
+  minReplicas: 1
+  kind: monitoring
+  type: postgres
+  selector:
+    cnpg.io/cluster: alerta-db
+    cnpg.io/podRole: instance
+  version: {{ $.Chart.Version }}

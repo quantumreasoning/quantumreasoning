@@ -1,0 +1,21 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    quantumreasoning.io/ui: "true"
+  name: bootbox
+  namespace: tenant-root
+spec:
+  chart:
+    spec:
+      chart: bootbox
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: HelmRepository
+        name: quantumreasoning-extra
+        namespace: quantum-public
+      version: '*'
+  interval: 1m0s
+  timeout: 5m0s

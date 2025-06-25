@@ -1,0 +1,85 @@
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  rootPasswordSecretKeyRef:
+    name: {{ .Release.Name }}-credentials
+    key: root
+
+  image: "mariadb:11.0.2"
+
+  port: 3306
+
+  replicas: {{ .Values.replicas }}
+  replicasAllowEvenNumber: true
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - mariadb
+          - key: app.kubernetes.io/instance
+            operator: In
+            values:
+            - {{ .Release.Name }}
+        topologyKey: "kubernetes.io/hostname"
+
+  {{- if gt (int .Values.replicas) 1 }}
+  replication:
+    enabled: true
+    #primary:
+    #  podIndex: 0
+    #  automaticFailover: true
+  {{- end }}
+
+  metrics:
+    enabled: true
+    exporter:
+      image: prom/mysqld-exporter:v0.15.1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 300m
+          memory: 512Mi
+      port: 9104
+    serviceMonitor:
+      interval: 10s
+      scrapeTimeout: 10s
+
+  myCnfConfigMapKeyRef:
+    name: {{ .Release.Name }}-my-cnf
+    key: config
+
+  service:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+
+  storage:
+    size: {{ .Values.size }}
+    resizeInUseVolumes: true
+    waitForVolumeResize: true
+    {{- with .Values.storageClass }}
+    storageClassName: {{ . }}
+    {{- end }}
+
+  {{- if .Values.external }}
+  primaryService:
+    type: LoadBalancer
+  {{- end }}
+
+  #secondaryService:
+  #  type: LoadBalancer
+
+  {{- if .Values.resources }}
+  resources: {{- include "quantum-lib.resources.sanitize" (list .Values.resources $) | nindent 4 }}
+  {{- else if ne .Values.resourcesPreset "none" }}
+  resources: {{- include "quantum-lib.resources.preset" (list .Values.resourcesPreset $) | nindent 4 }}
+  {{- end }}

@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quantumreasoning-api
+  namespace: quantum-system
+  labels:
+    app: quantumreasoning-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: quantumreasoning-api
+  template:
+    metadata:
+      labels:
+        app: quantumreasoning-api
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: quantumreasoning-api
+      containers:
+      - name: quantumreasoning-api
+        image: "{{ .Values.quantumreasoningAPI.image }}"
+        args: ["--config=/config/config.yaml"]
+        volumeMounts:
+        - name: config-volume
+          mountPath: /config/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config-volume
+        configMap:
+          name: quantumreasoning-api
+          items:
+          - key: config.yaml
+            path: config.yaml

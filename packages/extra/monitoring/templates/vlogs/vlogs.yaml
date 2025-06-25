@@ -1,0 +1,32 @@
+{{- range .Values.logsStorages }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VLogs
+metadata:
+  name: {{ .name }}
+spec:
+  image:
+    tag: v1.17.0-victorialogs
+  storage:
+    resources:
+      requests:
+        storage: {{ .storage }}
+    storageClassName: {{ .storageClassName }}
+    accessModes: [ReadWriteOnce]
+  retentionPeriod: "{{ .retentionPeriod }}"
+  removePvcAfterDelete: true
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: vlogs-{{ .name }}
+spec:
+  replicas: 1
+  minReplicas: 1
+  kind: monitoring
+  type: vlogs
+  selector:
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/instance: {{ .name }}
+    app.kubernetes.io/name: vlogs
+  version: {{ $.Chart.Version }}
+{{- end }}

@@ -1,0 +1,99 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  instances: {{ .Values.replicas }}
+  {{- if .Values.backup.enabled }}
+  backup:
+    barmanObjectStore:
+      destinationPath: {{ .Values.backup.destinationPath }}
+      endpointURL: {{ .Values.backup.endpointURL }}
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Release.Name }}-s3-creds
+          key: AWS_ACCESS_KEY_ID
+        secretAccessKey:
+          name: {{ .Release.Name }}-s3-creds
+          key: AWS_SECRET_ACCESS_KEY
+    retentionPolicy: {{ .Values.backup.retentionPolicy }}
+  {{- end }}
+  
+  {{- if .Values.bootstrap.enabled }}
+  bootstrap:
+    recovery:
+      source: {{ .Values.bootstrap.oldName }}
+      {{- if .Values.bootstrap.recoveryTime }}
+      recoveryTarget:
+        targetTime: {{ .Values.bootstrap.recoveryTime }}
+      {{- end }}
+  externalClusters:
+    - name: {{ .Values.bootstrap.oldName }}
+      barmanObjectStore:
+        destinationPath: {{ .Values.backup.destinationPath }}
+        endpointURL: {{ .Values.backup.endpointURL }}
+        s3Credentials:
+          accessKeyId:
+            name: {{ .Release.Name }}-s3-creds
+            key: AWS_ACCESS_KEY_ID
+          secretAccessKey:
+            name: {{ .Release.Name }}-s3-creds
+            key: AWS_SECRET_ACCESS_KEY
+  {{- end }}
+
+  {{- if .Values.resources }}
+  resources: {{- include "quantum-lib.resources.sanitize" (list .Values.resources $) | nindent 4 }}
+  {{- else if ne .Values.resourcesPreset "none" }}
+  resources: {{- include "quantum-lib.resources.preset" (list .Values.resourcesPreset $) | nindent 4 }}
+  {{- end }}
+
+  enableSuperuserAccess: true
+  {{- $configMap := lookup "v1" "ConfigMap" "quantum-system" "quantumreasoning-scheduling" }}
+  {{- if $configMap }}
+  {{- $rawConstraints := get $configMap.data "globalAppTopologySpreadConstraints" }}
+  {{- if $rawConstraints }}
+  {{- $rawConstraints | fromYaml | toYaml | nindent 2 }}
+    labelSelector:
+      matchLabels:
+        cnpg.io/cluster: {{ .Release.Name }}
+  {{- end }}
+  {{- end }}
+  postgresql:
+    parameters:
+      max_wal_senders: "30"
+      {{- with .Values.postgresql.parameters.max_connections }}
+      max_connections: "{{ . }}"
+      {{- end }}
+
+  minSyncReplicas: {{ .Values.quorum.minSyncReplicas }}
+  maxSyncReplicas: {{ .Values.quorum.maxSyncReplicas }}
+
+  monitoring:
+    enablePodMonitor: true
+
+  storage:
+    size: {{ required ".Values.size is required" .Values.size }}
+    {{- with .Values.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+
+  inheritedMetadata:
+    labels:
+      policy.quantumreasoning.io/allow-to-apiserver: "true"
+      app.kubernetes.io/name: postgres.apps.quantumreasoning.io
+      app.kubernets.io/instance: {{ $.Release.Name }}
+---
+apiVersion: quantumreasoning.io/v1alpha1
+kind: WorkloadMonitor
+metadata:
+  name: {{ $.Release.Name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  minReplicas: 1
+  kind: postgres
+  type: postgres
+  selector:
+    app.kubernetes.io/name: postgres.apps.quantumreasoning.io
+    app.kubernets.io/instance: {{ $.Release.Name }}
+  version: {{ $.Chart.Version }}

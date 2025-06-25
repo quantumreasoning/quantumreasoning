@@ -1,0 +1,7 @@
+apiVersion: v2
+name: tenant
+description: Separated tenant namespace
+icon: /logos/tenant.svg
+
+type: application
+version: 1.10.0

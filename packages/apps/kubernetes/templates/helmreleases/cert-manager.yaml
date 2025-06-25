@@ -1,0 +1,48 @@
+{{- if .Values.addons.certManager.enabled }}
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: {{ .Release.Name }}-cert-manager
+  labels:
+    quantumreasoning.io/repository: system
+    quantumreasoning.io/target-cluster-name: {{ .Release.Name }}
+spec:
+  interval: 5m
+  releaseName: cert-manager
+  chart:
+    spec:
+      chart: quantum-cert-manager
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: HelmRepository
+        name: quantumreasoning-system
+        namespace: quantum-system
+      version: '>= 0.0.0-0'
+  kubeConfig:
+    secretRef:
+      name: {{ .Release.Name }}-admin-kubeconfig
+      key: super-admin.svc
+  targetNamespace: quantum-cert-manager
+  storageNamespace: quantum-cert-manager
+  install:
+    createNamespace: true
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+  {{- with .Values.addons.certManager.valuesOverride }}
+  values:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  dependsOn:
+  {{- if lookup "helm.toolkit.fluxcd.io/v2" "HelmRelease" .Release.Namespace .Release.Name }}
+  - name: {{ .Release.Name }}
+    namespace: {{ .Release.Namespace }}
+  {{- end }}
+  - name: {{ .Release.Name }}-cilium
+    namespace: {{ .Release.Namespace }}
+  - name: {{ .Release.Name }}-cert-manager-crds
+    namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -1,0 +1,2 @@
+quantumreasoningAPI:
+  image: ghcr.io/quantumreasoning/quantumreasoning/quantumreasoning-api:v0.32.1@sha256:d9bee0e9f73a950784e43d907552c21044d01eed728e1185455308e49d00c00d
