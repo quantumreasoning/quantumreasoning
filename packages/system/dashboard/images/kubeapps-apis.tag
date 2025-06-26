@@ -1,1 +1,1 @@
-ghcr.io/aenix-io/quantumreasoning/kubeapps-apis:latest
+ghcr.io/quantumreasoning/quantumreasoning/kubeapps-apis:v0.32.1
