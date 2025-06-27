@@ -6,14 +6,14 @@ ARG TARGETARCH
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go mod download
+RUN GOOS=linux GOARCH=amd64 go mod download
 
 COPY api api/
 COPY pkg pkg/
 COPY cmd cmd/
 COPY internal internal/
 
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -ldflags="-extldflags=-static" -o /quantumreasoning-controller cmd/quantumreasoning-controller/main.go
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-extldflags=-static" -o /quantumreasoning-controller cmd/quantumreasoning-controller/main.go
 
 FROM scratch
 

@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-type quantumreasoningConfigReconciler struct {
+type QuantumreasoningConfigReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -31,7 +31,7 @@ const digestAnnotation = "quantumreasoning.io/quantum-config-digest"
 const forceReconcileKey = "reconcile.fluxcd.io/forceAt"
 const requestedAt = "reconcile.fluxcd.io/requestedAt"
 
-func (r *quantumreasoningConfigReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
+func (r *QuantumreasoningConfigReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
 	digest, err := r.computeDigest(ctx)
@@ -80,7 +80,7 @@ func (r *quantumreasoningConfigReconciler) Reconcile(ctx context.Context, _ ctrl
 	return ctrl.Result{}, nil
 }
 
-func (r *quantumreasoningConfigReconciler) computeDigest(ctx context.Context) (string, error) {
+func (r *QuantumreasoningConfigReconciler) computeDigest(ctx context.Context) (string, error) {
 	hash := sha256.New()
 
 	for _, name := range configMapNames {
@@ -109,7 +109,7 @@ func (r *quantumreasoningConfigReconciler) computeDigest(ctx context.Context) (s
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-func (r *quantumreasoningConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *QuantumreasoningConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {

@@ -101,10 +101,10 @@ func main() {
 
 	// Configure telemetry
 	telemetryConfig := telemetry.Config{
-		Disabled:         disableTelemetry,
-		Endpoint:         telemetryEndpoint,
-		Interval:         interval,
-		quantumreasoningVersion: quantumreasoningVersion,
+		Disabled: disableTelemetry,
+		Endpoint: telemetryEndpoint,
+		Interval: interval,
+		// quantumreasoningVersion: quantumreasoningVersion,
 	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -198,11 +198,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.quantumreasoningConfigReconciler{
+	if err = (&controller.QuantumreasoningConfigReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "quantumreasoningConfigReconciler")
+		setupLog.Error(err, "unable to create controller", "controller", "QuantumreasoningConfigReconciler")
 		os.Exit(1)
 	}
 
