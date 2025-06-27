@@ -24,6 +24,7 @@ image: pre-checks image-matchbox image-quantumreasoning image-talos
 
 image-quantumreasoning:
 	docker buildx build -f images/quantumreasoning/Dockerfile ../../.. \
+		--no-cache \
 		--provenance false \
 		--tag $(REGISTRY)/installer:$(call settag,$(TAG)) \
 		--cache-from type=registry,ref=$(REGISTRY)/installer:latest \

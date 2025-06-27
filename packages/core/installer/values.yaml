@@ -1,2 +1,2 @@
 quantumreasoning:
-  image: ghcr.io/quantumreasoning/quantumreasoning/installer:v42.8.1@sha256:daea30b457048d3ca92439677bc76f9cfe6dc47074724505321a0a00acd4df12
+  image: ghcr.io/quantumreasoning/quantumreasoning/installer:v42.9.1@sha256:55343c19a976f4193be85327efed39550e6e36f2b4b429091b0ac37b07f3e9aa
