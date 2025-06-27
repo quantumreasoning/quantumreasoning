@@ -4,6 +4,8 @@ NAMESPACE=quantum-system
 include ../../../scripts/common-envs.mk
 include ../../../scripts/package.mk
 
+TAG=v42.9.5
+
 image: image-quantumreasoning-controller update-version
 
 image-quantumreasoning-controller:

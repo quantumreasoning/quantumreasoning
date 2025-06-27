@@ -1,5 +1,5 @@
 quantumreasoningController:
-  image: ghcr.io/quantumreasoning/quantumreasoning/quantumreasoning-controller:latest@sha256:5f4058ad0537d2a3a8d69c767453611395f585f60d28cf1e34603fb9341bc174
+  image: ghcr.io/quantumreasoning/quantumreasoning/quantumreasoning-controller:v42.9.5
   debug: false
   disableTelemetry: true
-  quantumreasoningVersion: "latest"
+  quantumreasoningVersion: "42.9.5"
