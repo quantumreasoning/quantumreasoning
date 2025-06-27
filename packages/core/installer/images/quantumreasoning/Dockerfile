@@ -33,7 +33,7 @@ RUN make repos || (echo "Make failed"; cat Makefile; exit 1)
 
 FROM alpine:3.22
 
-RUN wget -O- https://github.com/quantumreasoning/quantumpkg/raw/refs/heads/main/hack/install.sh | sh -s --
+RUN wget -O- https://github.com/quantumreasoning/quantumpkg/raw/refs/heads/main/hack/install.sh | sh 
 
 RUN apk add --no-cache make kubectl coreutils
 
@@ -44,7 +44,7 @@ COPY --from=builder /src/_out/repos /quantumreasoning/assets/repos
 # COPY --from=builder /src/_out/logos /quantumreasoning/assets/logos
 COPY --from=builder /quantumreasoning-assets-server /usr/bin/quantumreasoning-assets-server
 COPY --from=k8s-await-election-builder /k8s-await-election /usr/bin/k8s-await-election
-COPY --from=builder /src/dashboards /quantumreasoning/assets/dashboards
+# COPY --from=builder /src/dashboards /quantumreasoning/assets/dashboards
 
 RUN chmod +x /quantumreasoning/scripts/installer.sh
 

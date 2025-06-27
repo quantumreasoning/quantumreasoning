@@ -1,1 +1,1 @@
-ghcr.io/quantumreasoning/quantumreasoning/matchbox:v42.8.2@sha256:89418a49f55aa8456ef16e3ad77e295768f71cf78d7a78800f13df7e5b9a5d9d
+ghcr.io/quantumreasoning/quantumreasoning/matchbox:v42.9.2@sha256:f7cb817cdff4c1238199f2d7b083b0e42ccec14dc11d766aaf305b969f6d084b
